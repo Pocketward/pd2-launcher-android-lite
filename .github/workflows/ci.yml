@@ -56,11 +56,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Only the Kotlin sources, with the runner's JDK 17 and Android SDK: that needs no runtime
+      # Only the Kotlin sources, with the runner's JDK 21 and Android SDK: that needs no runtime
       # asset, no native build and no build image. build.sh builds the APK in its pinned build
-      # image (release.yml).
+      # image (release.yml). JDK 21 is the build image's: Gradle resolves the same artifacts as
+      # there, which gradle/verification-metadata.xml lists (another JDK asks for others).
       - name: Compile the app's Kotlin sources
         working-directory: app
         run: |
-          export JAVA_HOME=${JAVA_HOME_17_X64:-$JAVA_HOME}
+          export JAVA_HOME=${JAVA_HOME_21_X64:?the runner has no JDK 21}
           ./gradlew --no-daemon --console=plain :app:compileDebugKotlin
