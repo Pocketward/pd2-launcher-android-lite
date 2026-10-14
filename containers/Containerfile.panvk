@@ -1,0 +1,39 @@
+# PanVK build image (build/panvk.sh; amd64 host, arm64 target through Debian multiarch): the Mesa
+# image's cross toolchain and arm64 libraries, plus what Mesa needs to build PanVK's host tools
+# natively (mesa_clc, vtn_bindgen2, panfrost_compile): LLVM, Clang and libclc 19 with the SPIR-V
+# translator and SPIRV-Tools, and the native compilers and libraries they link. The Debian image
+# and snapshot are ../config.sh's pins, so every package version is fixed.
+ARG DEBIAN_IMAGE
+FROM ${DEBIAN_IMAGE}
+
+ARG DEBIAN_SNAPSHOT
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+    && printf '%s\n' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" \
+        'Suites: trixie trixie-updates' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        'Check-Valid-Until: no' \
+        '' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}" \
+        'Suites: trixie-security' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        'Check-Valid-Until: no' \
+        > /etc/apt/sources.list.d/snapshot.sources \
+    && dpkg --add-architecture arm64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl xz-utils file patch jq python3 python3-mako python3-yaml python3-packaging \
+        meson ninja-build pkgconf bison flex glslang-tools gcc g++ \
+        llvm-19-dev libclang-19-dev libclang-cpp19-dev libpolly-19-dev clang-19 libclc-19-dev \
+        llvm-spirv-19 libllvmspirvlib-19-dev spirv-tools zlib1g-dev libzstd-dev libdrm-dev \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross \
+        libx11-dev:arm64 libx11-xcb-dev:arm64 libxext-dev:arm64 libxfixes-dev:arm64 libxrandr-dev:arm64 \
+        libxxf86vm-dev:arm64 libxshmfence-dev:arm64 libxcb1-dev:arm64 libxcb-glx0-dev:arm64 \
+        libxcb-dri3-dev:arm64 libxcb-present-dev:arm64 libxcb-randr0-dev:arm64 libxcb-shm0-dev:arm64 \
+        libxcb-sync-dev:arm64 libxcb-xfixes0-dev:arm64 libdrm-dev:arm64 libexpat1-dev:arm64 \
+        zlib1g-dev:arm64 libzstd-dev:arm64 \
+    && rm -rf /var/lib/apt/lists/*

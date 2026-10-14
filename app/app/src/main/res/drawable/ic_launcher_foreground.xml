@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PD2 Launcher Lite: the main app's mark (a gold block II inside an eight-segment teal waypoint ring),
+     scaled to 0.85 and raised 4 units, with a gold ribbon across the ring's lower part that reads
+     LITE in block letters (paths: vector drawables have no fonts), all inside the safe circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.85"
+        android:scaleY="0.85"
+        android:translateY="-4">
+        <path
+            android:pathData="M57.17,28.19 A26,26 0 0 1 70.01,33.51 M74.49,37.99 A26,26 0 0 1 79.81,50.83 M79.81,57.17 A26,26 0 0 1 74.49,70.01 M70.01,74.49 A26,26 0 0 1 57.17,79.81 M50.83,79.81 A26,26 0 0 1 37.99,74.49 M33.51,70.01 A26,26 0 0 1 28.19,57.17 M28.19,50.83 A26,26 0 0 1 33.51,37.99 M37.99,33.51 A26,26 0 0 1 50.83,28.19"
+            android:strokeColor="#34B8A7"
+            android:strokeWidth="3.2"
+            android:strokeLineCap="butt"
+            android:strokeLineJoin="miter" />
+        <path
+            android:pathData="M54.00,25.40 L56.60,28.00 L54.00,30.60 L51.40,28.00 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M72.38,33.02 L74.98,35.62 L72.38,38.22 L69.78,35.62 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M80.00,51.40 L82.60,54.00 L80.00,56.60 L77.40,54.00 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M72.38,69.78 L74.98,72.38 L72.38,74.98 L69.78,72.38 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M54.00,77.40 L56.60,80.00 L54.00,82.60 L51.40,80.00 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M35.62,69.78 L38.22,72.38 L35.62,74.98 L33.02,72.38 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M28.00,51.40 L30.60,54.00 L28.00,56.60 L25.40,54.00 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M35.62,33.02 L38.22,35.62 L35.62,38.22 L33.02,35.62 Z"
+            android:fillColor="#34B8A7" />
+        <path
+            android:pathData="M40,39 H68 V44 H62.5 V64 H68 V69 H40 V64 H45.5 V44 H40 Z M50.5,44 V64 H57.5 V44 Z"
+            android:fillColor="#E3AA3E" />
+    </group>
+    <!-- The ribbon: x 36 to 72, y 70 to 84, corners of 7. -->
+    <path
+        android:pathData="M43,70 H65 A7,7 0 0 1 72,77 A7,7 0 0 1 65,84 H43 A7,7 0 0 1 36,77 A7,7 0 0 1 43,70 Z"
+        android:fillColor="#E3AA3E" />
+    <!-- LITE: block letters 8 units tall (y 73 to 81), strokes of 2, in the icon's background colour. -->
+    <path
+        android:pathData="M41,73 H43 V79 H46.5 V81 H41 Z M49,73 H51 V81 H49 Z M53.5,73 H59.5 V75 H57.5 V81 H55.5 V75 H53.5 Z M62,73 H67.5 V75 H64 V76 H66.5 V78 H64 V79 H67.5 V81 H62 Z"
+        android:fillColor="#10191a" />
+</vector>

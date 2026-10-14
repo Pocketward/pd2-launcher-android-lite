@@ -1,0 +1,66 @@
+# Checks of every push to main and every pull request to main that need no
+# device and no long build: the shell scripts parse (bash -n) and pass
+# ShellCheck, the Python scripts compile, and the app's Kotlin sources compile.
+# The APK itself packs the runtime, which only release.yml builds (that takes
+# hours), and the app's JVM tests are not part of this repository.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Parse the shell scripts
+        run: |
+          status=0
+          count=0
+          while IFS= read -r -d '' script; do
+            bash -n "$script" || status=1
+            count=$((count + 1))
+          done < <(git ls-files -z '*.sh')
+          echo "$count shell scripts"
+          exit "$status"
+
+      # At warning level. -x follows the files that a "# shellcheck source=" line names.
+      - name: Check the shell scripts with ShellCheck
+        run: |
+          command -v shellcheck >/dev/null || {
+            sudo apt-get update -qq
+            sudo apt-get install --yes --no-install-recommends shellcheck
+          }
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 -r shellcheck -x --severity=warning
+
+      - name: Compile the Python scripts
+        run: git ls-files -z '*.py' | xargs -0 -r python3 -I -m py_compile
+
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Only the Kotlin sources, with the runner's JDK 17 and Android SDK: that needs no runtime
+      # asset, no native build and no build image. build.sh builds the APK in its pinned build
+      # image (release.yml).
+      - name: Compile the app's Kotlin sources
+        working-directory: app
+        run: |
+          export JAVA_HOME=${JAVA_HOME_17_X64:-$JAVA_HOME}
+          ./gradlew --no-daemon --console=plain :app:compileDebugKotlin

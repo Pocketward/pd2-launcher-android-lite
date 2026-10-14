@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher shell: Import, Complete, Play and Repair. -->
+<resources>
+    <string name="percent">%1$d%%</string>
+    <string name="stepper_less">−</string>
+    <string name="stepper_more">+</string>
+    <string name="back_to_play">‹ Play</string>
+    <string name="back_to_game">‹ Game</string>
+    <string name="back_to_menu">‹ Menu</string>
+
+    <string name="action_try_again">Try again</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_stopping">Stopping…</string>
+
+    <!-- Step 2: Import. -->
+    <string name="import_title">Import your Diablo II folder</string>
+    <string name="import_intro">PD2 Launcher Lite plays your own Diablo II with Project Diablo 2. Copy the folder from your PC to this device, then pick it here. The app copies it into its own storage; the folder you pick does not change.</string>
+    <string name="import_needs">The folder needs Diablo II with Lord of Destruction and Project Diablo 2 installed (the ProjectD2 folder with its launcher). The official PD2 launcher keeps it up to date afterwards.</string>
+    <string name="import_pick">Pick folder…</string>
+    <string name="import_checking">Checking the folder…</string>
+    <string name="import_found">Diablo II with Project Diablo 2</string>
+    <string name="import_found_where">%1$,d MB · %2$s</string>
+    <string name="import_found_size">%1$,d MB</string>
+    <string name="import_not_diablo">This is not a Diablo II folder (it has no Game.exe). Pick the folder Diablo II is installed in.</string>
+    <string name="import_no_pd2">This Diablo II folder has no Project Diablo 2 (no ProjectD2 folder). Install Project Diablo 2 into it first (on a PC, with PD2\'s installer), then import it.</string>
+    <string name="import_pd2_incomplete">Project Diablo 2 is not complete in this folder (no ProjectDiablo.dll in ProjectD2). Repair it with PD2\'s launcher on a PC, then import it.</string>
+    <string name="import_no_launcher">The official PD2 launcher is not in this folder (no PD2Launcher.exe in ProjectD2). Install it with PD2\'s installer on a PC, then import the folder.</string>
+    <string name="import_no_space">Not enough space: this needs %1$,d MB, %2$,d MB are free.</string>
+    <string name="import_unreadable">The folder cannot be read: %1$s</string>
+    <string name="import_busy">Not now: an import runs, or the game is open. Try again once it is done.</string>
+    <string name="status_import_busy">Not now: an import runs, or the game is open. Try again once it is done.</string>
+
+    <!-- Step 3: Complete. -->
+    <string name="complete_title">Complete</string>
+    <string name="complete_title_running">Copying your Diablo II folder</string>
+    <string name="complete_title_stopping">Stopping…</string>
+    <string name="complete_title_stopped">Copy stopped</string>
+    <string name="complete_title_failed">Setup did not finish</string>
+    <string name="complete_title_done">Setup complete</string>
+    <string name="complete_intro">The app copies your folder into its own storage, then checks Project Diablo 2 in the copy. The folder you picked does not change.</string>
+    <string name="complete_intro_stopped">The folder you picked did not change. Try again copies it from the start.</string>
+    <string name="complete_intro_done">Diablo II with Project Diablo 2 is in the app now. Next: Start launcher opens the official PD2 launcher; its Play starts the game.</string>
+    <string name="complete_amount">%1$,d of %2$,d MB</string>
+    <string name="complete_task_copy">Copy your Diablo II folder</string>
+    <string name="complete_task_check">Check Project Diablo 2</string>
+    <string name="complete_row_copying">Copying…</string>
+    <string name="complete_row_copied">Copied</string>
+    <string name="complete_row_checked">Game.exe, Project Diablo 2 and its launcher found</string>
+    <string name="complete_row_stopped">Stopped</string>
+    <string name="complete_row_failed">Did not finish</string>
+    <string name="complete_copy_failed">The copy failed: %1$s</string>
+    <string name="complete_check_missing">The copy is not complete: %1$s is missing.</string>
+    <string name="complete_kept_not_restored">Some of the characters Start over kept could not go back into the game (%1$s). They are safe in the app\'s storage; the next import puts them back.</string>
+
+    <!-- Play: its one main action opens the official PD2 launcher, whose own Play starts the game. -->
+    <string name="action_start_launcher">Start launcher</string>
+    <string name="play_ready">Ready to play</string>
+    <!-- Where "Ready to play" goes while Start launcher waits. -->
+    <string name="play_getting_ready">Getting ready…</string>
+    <!-- Where "Ready to play" goes while the game support files failed (Try again shows under the problem). -->
+    <string name="play_not_ready">Can\'t start right now</string>
+    <!-- Under Start launcher: the last start ended before the launcher showed or did its work. -->
+    <string name="play_launcher_failed">The official PD2 launcher didn\'t open. Try again, or check the game in Repair.</string>
+    <!-- Under Start launcher: the player closed the launcher after it stopped responding. -->
+    <string name="play_launcher_stalled">The official PD2 launcher stopped responding and was closed. Start launcher opens it again.</string>
+    <string name="play_fact_plain">%1$s</string>
+    <string name="play_fact_size">%1$d × %2$d</string>
+    <string name="play_settings">Settings</string>
+    <string name="play_controls">Controls</string>
+    <string name="play_repair">Repair</string>
+    <string name="play_about">About</string>
+
+    <!-- Repair. -->
+    <string name="repair_title">Your game</string>
+    <string name="repair_intro">Check again looks over your game folder and the game support files. Start over removes the app\'s copy of your Diablo II folder so that you can import it again; your characters are kept.</string>
+    <string name="repair_status_checking">Checking…</string>
+    <string name="repair_status_resetting">Starting over…</string>
+    <string name="repair_row_folder">Your game folder</string>
+    <string name="repair_folder_from">From %1$s</string>
+    <string name="repair_folder_complete">%1$,d MB · Complete</string>
+    <string name="repair_folder_missing">Missing: %1$s. Start over and import the folder again.</string>
+    <string name="repair_row_launcher">Official PD2 launcher</string>
+    <string name="repair_launcher_found">Found</string>
+    <string name="repair_launcher_missing">Missing: ProjectD2/PD2Launcher.exe. Start over and import a folder that has it.</string>
+    <string name="repair_support_ready">Ready · build %1$s</string>
+    <string name="repair_support_unpacking">Unpacking…</string>
+    <string name="repair_start_over">Start over…</string>
+    <string name="repair_keep">Keep it</string>
+    <string name="repair_confirm">Remove and start over</string>
+    <string name="repair_confirm_body">Start over removes the app\'s copy of your Diablo II folder: the game files, Project Diablo 2 and their settings. Your characters are kept: they move to the app\'s own storage and go back into the next folder you import (beside its own characters, in Save/Kept, when the names are the same). The folder on your device does not change.</string>
+    <string name="repair_refused_busy">Start over can\'t run now: the game or an import is still running. Try again once it has closed.</string>
+    <string name="repair_saves_not_kept">Start over didn\'t remove anything: your characters couldn\'t be moved first (%1$s). Try again.</string>
+</resources>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's name and the first run: the device check and step 1, Check (as the main app's). -->
+<resources>
+    <string name="app_name">PD2 Launcher Lite</string>
+    <!-- The header's name (Wordmark): the game's name, as the main app's, then the launcher's, in gold:
+         one line where it fits, else the launcher's under the game's. The game is not "Lite"; the launcher is. -->
+    <string name="brand_name">Project Diablo 2</string>
+    <string name="brand_edition">Launcher Lite</string>
+
+    <!-- The four step marks: Check, Import, Complete, Play. -->
+    <string name="step_check">Check</string>
+    <string name="step_import">Import</string>
+    <string name="step_complete">Complete</string>
+    <string name="step_play">Play</string>
+    <string name="step_counter">Step %1$d of %2$d</string>
+
+    <!-- Device check. -->
+    <string name="device_checking_title">Checking this device…</string>
+    <string name="device_checking_body">Nothing is unpacked until the check passes.</string>
+    <string name="not_supported_title">This device is not supported</string>
+    <string name="not_supported_body">PD2 Launcher Lite needs an Adreno or a Mali-G310, G610, G615, G715, G720 or G725 GPU, Android 13 or later and 4 KB memory pages.</string>
+    <string name="not_supported_close">Close</string>
+    <string name="device_gpu_not_supported">%1$s is not supported. An Adreno or a Mali-G310, G610, G615, G715, G720 or G725 GPU is needed.</string>
+    <string name="device_gpu_unknown">This GPU is not supported. An Adreno or a Mali-G310, G610, G615, G715, G720 or G725 GPU is needed.</string>
+    <string name="device_page_size">Memory pages are %1$d bytes. 4096 is needed.</string>
+    <!-- Check's device row: the GPU and the Android version. -->
+    <string name="device_summary">%1$s graphics · Android %2$s</string>
+    <string name="device_summary_android">Android %1$s</string>
+
+    <!-- Step 1: Check. -->
+    <string name="check_title">Checking this device</string>
+    <string name="check_intro">First, let\'s make sure this device can run the game.</string>
+    <string name="check_title_ready">Ready for Diablo II</string>
+    <string name="check_intro_ready">This device runs Project Diablo 2. Next, import your Diablo II folder.</string>
+    <string name="check_title_problem">Something is missing</string>
+    <string name="check_intro_problem">This device can\'t run the game yet. What is missing is listed here; try again once it is fixed.</string>
+    <string name="check_title_untested">Untested device</string>
+    <string name="check_intro_untested">The game may not run well on this device; the warning below says why. You can still go on and import your Diablo II folder.</string>
+    <!-- The rows that passed, folded into one line that opens. -->
+    <string name="check_passed_one">1 check passed</string>
+    <string name="check_passed">%1$d checks passed</string>
+    <string name="check_passed_show">Show</string>
+    <string name="check_passed_hide">Hide</string>
+    <!-- The rows in plain words: the runtime is "Game support files" (its build shows in About). -->
+    <string name="row_device">This device</string>
+    <string name="row_userland">Game support files</string>
+    <string name="row_host">Can run the game</string>
+    <string name="userland_checking">Checking…</string>
+    <string name="userland_unpacking">Unpacking %1$d%% (%2$d of %3$d MB)</string>
+    <string name="userland_unpacking_open">Unpacking… %1$d MB</string>
+    <string name="userland_ready">Ready</string>
+    <string name="userland_failed">Unpacking failed: %1$s</string>
+    <string name="host_after_unpack">Waits for the game support files.</string>
+    <string name="host_after_unpack_failed">Needs the game support files.</string>
+    <string name="host_supported">Yes</string>
+    <string name="host_missing_files">Files are missing from the game support files (%1$s). Try again unpacks them again.</string>
+    <string name="hint_wait_for_check">Continue is offered once the check is done.</string>
+    <string name="hint_try_again">Try again unpacks the game support files again.</string>
+    <string name="hint_continue_to_import">Next: import your Diablo II folder.</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_back">Back</string>
+    <string name="action_check_again">Check again</string>
+    <string name="status_ok">passed</string>
+    <string name="status_warning">warning</string>
+    <string name="status_error">problem</string>
+    <string name="status_pending">in progress</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The development mark (the main app's): a red dot, ringed in the icon's background colour, on
+     the Lite ring's upper right waypoint (69.62, 34.38: the main ring's 72.38, 35.62 scaled to 0.85
+     about the centre and raised 4), clear of the LITE ribbon and inside the safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M69.62,26.88 A7.5,7.5 0 1 1 69.62,41.88 A7.5,7.5 0 1 1 69.62,26.88 Z"
+        android:fillColor="#10191a" />
+    <path
+        android:pathData="M69.62,28.88 A5.5,5.5 0 1 1 69.62,39.88 A5.5,5.5 0 1 1 69.62,28.88 Z"
+        android:fillColor="#E5533D" />
+</vector>

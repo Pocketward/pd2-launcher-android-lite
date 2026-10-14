@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- About: the only screen that names the technology. -->
+<resources>
+    <string name="about_title">About</string>
+    <string name="about_back">‹ Back</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_what">PD2 Launcher Lite plays Project Diablo 2 from your own Diablo II folder on your device, with touch and controller controls. Import a folder that already has Project Diablo 2; the official PD2 launcher keeps it up to date and starts the game.</string>
+    <string name="about_disclaimer">PD2 Launcher Lite is a community-made tool. It is not affiliated with or endorsed by the Project Diablo 2 team or Blizzard Entertainment.</string>
+    <string name="about_built_title">Built with</string>
+    <string name="about_built_box64">Box64 (WowBox64) + six patches</string>
+    <string name="about_built_wine">Wine 11.0 for ARM64</string>
+    <string name="about_built_dotnet">.NET 6.0.36 (x86) for the official launcher</string>
+    <!-- The game support files' build: Check calls them "Game support files". -->
+    <string name="about_runtime">Runtime build %1$s</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_about">About PD2 Launcher Lite</string>
+    <string name="settings_about_body">What it is and what it is built with</string>
+</resources>

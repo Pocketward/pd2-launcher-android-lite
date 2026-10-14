@@ -1,0 +1,109 @@
+# Debian 13 (trixie) arm64 packages of the native userland, at the snapshot in ../config.sh
+# (DEBIAN_SNAPSHOT). fetch-debian.sh --resolve turns this list into packages.lock (exact
+# dependency closure, SHA-256 per .deb).
+#
+# Line format:  <set> <package>=<version>   or   exclude <package>
+#   runtime  goes into the native userland (and the build sysroot)
+#   build    goes only into the cross-build sysroot (headers and .pc files for xvfb.sh, relay.sh)
+#   exclude  dropped from the closure: needed only by maintainer scripts, which are never run, or
+#            replaced by our own build (Mesa: build/mesa.sh)
+
+# X server: Xvfb itself is built from source by xvfb.sh (compiled-in XKB paths, lock file);
+# these are its XKB data and compiler and the libraries it links
+runtime x11-xkb-utils=7.7+9
+runtime xkb-data=2.42-1
+runtime libpixman-1-0=0.44.0-3
+runtime libxfont2=1:2.0.6-1+deb13u1
+runtime libxau6=1:1.0.11-1
+runtime libxdmcp6=1:1.1.5-1
+runtime libmd0=1.1.0-2+b1
+
+# Sound: PulseAudio with Wine's winepulse
+runtime pulseaudio=17.0+dfsg1-2+b1
+
+# X11 client libraries that Wine opens and x-input-relay links
+runtime libx11-6=2:1.8.12-1
+runtime libx11-xcb1=2:1.8.12-1
+runtime libxcb1=1.17.0-2+b1
+runtime libxext6=2:1.3.4-1+b3
+runtime libxrender1=1:0.9.12-1
+runtime libxfixes3=1:6.0.0-2+b4
+runtime libxcursor1=1:1.2.3-1
+runtime libxi6=2:1.8.2-1
+runtime libxrandr2=2:1.5.4-1+b3
+runtime libxtst6=2:1.2.5-1
+
+# Graphics: the Vulkan loader and glvnd's GL and EGL dispatch; the vendor libraries (Zink, Turnip)
+# come from build/mesa.sh, and these are the libraries they link
+runtime libvulkan1=1.4.309.0-1
+runtime libgl1=1.7.0-1+b2
+runtime libegl1=1.7.0-1+b2
+runtime libxshmfence1=1.3.3-1
+runtime libxcb-dri3-0=1.17.0-2+b1
+runtime libxcb-present0=1.17.0-2+b1
+runtime libxcb-randr0=1.17.0-2+b1
+runtime libxcb-shm0=1.17.0-2+b1
+runtime libxcb-sync1=1.17.0-2+b1
+runtime libxcb-xfixes0=1.17.0-2+b1
+runtime libxcb-glx0=1.17.0-2+b1
+runtime libxxf86vm1=1:1.1.4-1+b4
+runtime libexpat1=2.8.3-1~deb13u1
+runtime libzstd1=1.5.7+dfsg-1
+runtime zlib1g=1:1.3.dfsg+really1.3.1-1+b1
+
+# Text (Wine brings its own fonts)
+runtime libfreetype6=2.13.3+dfsg-1+deb13u1
+runtime libfontconfig1=2.15.0-2.3
+
+# TLS for Wine's schannel (the official PD2 launcher's HTTPS)
+runtime libgnutls30t64=3.8.9-3+deb13u4
+
+# C and C++ runtime; glibc itself is replaced by ours (glibc.sh)
+runtime libc6=2.41-12+deb13u4
+runtime libgcc-s1=14.2.0-19
+runtime libstdc++6=14.2.0-19
+
+# Build-only: headers and pkg-config files for Xvfb and x-input-relay
+build x11proto-dev=2024.1-1
+build xtrans-dev=1.4.0-1
+build libpixman-1-dev=0.44.0-3
+build libxkbfile-dev=1:1.1.0-1+b4
+build libxfont-dev=1:2.0.6-1+deb13u1
+build libxau-dev=1:1.0.11-1
+build libxdmcp-dev=1:1.1.5-1
+build libmd-dev=1.1.0-2+b1
+build libgl-dev=1.7.0-1+b2
+build mesa-common-dev=25.0.7-2+deb13u1
+build libc6-dev=2.41-12+deb13u4
+build libx11-dev=2:1.8.12-1
+build libxext-dev=2:1.3.4-1+b3
+build libxfixes-dev=1:6.0.0-2+b4
+build libxtst-dev=2:1.2.5-1
+
+# Only maintainer scripts need these; they are never run
+exclude adduser
+exclude base-passwd
+exclude debconf
+exclude init-system-helpers
+exclude login.defs
+exclude lsb-base
+exclude passwd
+exclude sysvinit-utils
+exclude libpam-modules
+exclude libpam-modules-bin
+exclude libpam-runtime
+exclude x11-common
+exclude shared-mime-info
+exclude libcap2-bin
+exclude openssl
+exclude libasound2-plugins
+exclude iso-codes
+# Debian's Mesa: build/mesa.sh builds Zink and Turnip without LLVM instead
+exclude libglx-mesa0
+exclude libegl-mesa0
+exclude libgl1-mesa-dri
+exclude mesa-libgallium
+exclude mesa-vulkan-drivers
+# Fonts: Wine brings its own, and fontconfig only needs its library
+exclude fontconfig-config
+exclude fonts-dejavu-core

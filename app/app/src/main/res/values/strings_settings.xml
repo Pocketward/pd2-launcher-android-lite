@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings. -->
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_tab_game">Game</string>
+    <string name="settings_tab_app">App</string>
+    <string name="settings_tab_controller">Controller</string>
+    <string name="settings_applies_game">These apply the next time you press Start launcher.</string>
+    <string name="settings_applies_app">These apply at once.</string>
+    <string name="settings_applies_controller">These apply at once, in the game too.</string>
+
+    <string name="settings_section_start">Graphics, start and sound</string>
+    <string name="settings_section_resolution">Game resolution</string>
+    <string name="settings_resolution_body">The official PD2 launcher and the game it starts use this screen size. Fewer lines are smoother; the picture is scaled up to fill the screen. The game\'s own graphics options are in the game (Ctrl+O).</string>
+    <string name="settings_resolution_automatic">Automatic: %1$s</string>
+    <string name="settings_resolution_automatic_body">The display\'s full size on Adreno GPUs, 720 lines on Mali GPUs. The launcher\'s window needs the room.</string>
+    <string name="settings_resolution_full">%1$d × %2$d (full)</string>
+    <string name="settings_resolution_size">%1$d × %2$d</string>
+    <string name="settings_graphics_profile">Graphics profile</string>
+    <string name="settings_graphics_profile_body">D2GL\'s settings for the game\'s look, written at the next start. What you change in the game (Ctrl+O) stays until you pick another profile.</string>
+    <string name="settings_graphics_automatic_default">Automatic: Default</string>
+    <string name="settings_graphics_automatic_performance">Automatic: Performance</string>
+    <string name="settings_graphics_automatic_body">Performance on older or entry-level Adreno GPUs and on Mali GPUs, Default on newer Adrenos.</string>
+    <string name="settings_graphics_default">Default</string>
+    <string name="settings_graphics_default_body">Project Diablo 2\'s own D2GL settings.</string>
+    <string name="settings_graphics_performance">Performance</string>
+    <string name="settings_graphics_performance_body">D2GL\'s advanced settings tuned down for older devices: a simpler shader, no sharpening, no bloom.</string>
+    <string name="settings_limit_frame_rate">Limit to 60 fps</string>
+    <string name="settings_limit_frame_rate_body">This screen shows up to %1$d frames a second. At 60 the game uses less battery and stays cooler, but moves less smoothly.</string>
+    <!-- In place of the main app's renderer, Skip to Battle.net and sound rows: the official launcher starts the game with its own options. -->
+    <string name="settings_launcher_options">The official PD2 launcher\'s Options set the renderer (Glide or DirectDraw), Skip to Battle.net and the game\'s sound in the background.</string>
+
+    <string name="settings_section_screen">Screen</string>
+    <string name="settings_keep_screen_on">Keep the screen on during play</string>
+    <string name="settings_keep_screen_on_body">The screen does not dim or turn off while the game shows.</string>
+    <string name="settings_show_fps">Show fps</string>
+    <string name="settings_show_fps_body">A small counter at the top of the game: the frames the game draws each second.</string>
+</resources>

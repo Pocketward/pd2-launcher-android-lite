@@ -1,0 +1,437 @@
+# The release build of PD2 Launcher Lite. Each export is one commit on main whose
+# message is its version (vX.Y.Z or vX.Y.Z-betaN). A push to main whose commit
+# carries that version's tag builds and publishes that release; a push to main
+# whose commit has no tag yet is a release candidate, built into a draft release
+# (below); workflow_dispatch builds a given tag again, or main's head as a
+# candidate. Running on main keeps the build caches where every later release
+# can use them (a tag's own caches serve only that tag).
+#
+#   tag    finds the release tag and the commit to build, and checks that the
+#          app's versionName at that commit is the tag's
+#   build  ./build.sh release, signed with the release key from the secrets of
+#          the environment "release", which only this job names, then the
+#          GitHub release with the APK and its SHA-256. The pinned downloads
+#          (dl/), the finished parts (parts/) and the build images' archives
+#          (PD2_IMAGE_ARCHIVE) are cached apart, so a release builds again only
+#          the parts whose inputs changed
+#
+# Every job builds the one commit the tag named when the tag job looked, which
+# must be on main and which the tag must still name when the release is
+# published; the APK's versionName must be the tag's, and a release that
+# already has files is not overwritten (a person deletes them first).
+#
+# A release candidate is built in the same way before its tag exists: the push
+# of an export commit to main without a tag (its message names the version), or
+# workflow_dispatch on main with candidate set (gh workflow run release.yml
+# --ref main -f tag=vX.Y.Z -f candidate=true), which builds main's head and
+# needs its message to be the tag. Every job builds that commit, which must
+# still be on main; the tag must still not exist when the APK is published on a
+# draft release of the tag that targets that commit (a draft's files are
+# replaced, and a newer candidate moves its target). Publishing the draft after
+# its test makes the tag on that commit.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to build and publish
+        required: true
+      candidate:
+        description: Build main's head as a draft release, before the tag exists (its commit message must be the tag)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
+      candidate: ${{ steps.tag.outputs.candidate }}
+    steps:
+      # The whole history: the release's commit must be on main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Find the release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_CANDIDATE: ${{ inputs.candidate }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          # The published release of a tag as JSON, nothing when there is none (HTTP 404); any other
+          # error fails. gh writes an error's body to standard output.
+          published() {
+            local body
+            if body=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$1" 2>/dev/null); then
+              echo "$body"
+            elif [[ $(jq -r '.status // empty' <<<"$body" 2>/dev/null) != 404 ]]; then
+              echo "cannot read the release $1: $body" >&2
+              return 1
+            fi
+          }
+          candidate=
+          # A candidate: main's head, before its tag exists, built on request.
+          if [[ $INPUT_CANDIDATE == true ]]; then
+            [[ $GITHUB_REF == refs/heads/main ]] ||
+              { echo "a candidate is built on main, not $GITHUB_REF" >&2; exit 1; }
+            [[ $INPUT_TAG =~ $pattern ]] || { echo "not a release tag: $INPUT_TAG" >&2; exit 1; }
+            message=$(git log -1 --format=%s "$GITHUB_SHA")
+            [[ $message == "$INPUT_TAG" ]] ||
+              { echo "main's head $GITHUB_SHA is the export of ${message:-nothing}, not $INPUT_TAG" >&2; exit 1; }
+            refs=$(git ls-remote --tags origin "refs/tags/$INPUT_TAG")
+            [[ -z $refs ]] || { echo "the tag $INPUT_TAG exists; a candidate is built before its tag" >&2; exit 1; }
+            release=$(published "$INPUT_TAG")
+            [[ -z $release ]] || { echo "the release $INPUT_TAG is published" >&2; exit 1; }
+            tag=$INPUT_TAG
+            candidate=true
+          elif [[ -n $INPUT_TAG ]]; then
+            [[ $INPUT_TAG =~ $pattern ]] || { echo "not a release tag: $INPUT_TAG" >&2; exit 1; }
+            git ls-remote --exit-code --tags origin "refs/tags/$INPUT_TAG" >/dev/null ||
+              { echo "no tag $INPUT_TAG" >&2; exit 1; }
+            tag=$INPUT_TAG
+          else
+            # The tag arrives with the commit; look twice more in case it is a moment late.
+            for attempt in 1 2 3; do
+              tag=$(git ls-remote --tags origin 'refs/tags/v*' |
+                awk -v commit="$GITHUB_SHA" '$1 == commit { sub("^refs/tags/", "", $2); sub("\\^\\{\\}$", "", $2); print $2 }' |
+                grep -E "$pattern" | sort -uV | tail -n 1 || true)
+              [[ -n $tag || $attempt == 3 ]] && break
+              sleep 10
+            done
+            if [[ -n $tag ]]; then
+              # A release whose files are published already is not built again.
+              release=$(published "$tag")
+              files=0
+              [[ -z $release ]] || files=$(jq '.assets | length' <<<"$release")
+              if [[ $files != 0 ]]; then
+                echo "the release $tag is published with $files files: nothing to build"
+                tag=
+              fi
+            else
+              # An export commit without its tag is a candidate: its message is the version.
+              message=$(git log -1 --format=%s "$GITHUB_SHA")
+              if [[ $message =~ $pattern ]]; then
+                refs=$(git ls-remote --tags origin "refs/tags/$message")
+                release=$(published "$message")
+                if [[ -z $refs && -z $release ]]; then
+                  tag=$message
+                  candidate=true
+                else
+                  echo "$message has its tag or a published release already: nothing to build"
+                fi
+              fi
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${tag:-none (not a release)}${candidate:+ (a candidate)}"
+
+      # The commit the tag names now is the one every job builds, whatever the tag names later;
+      # only a commit on main, where a release is reviewed, is released. A candidate's is the
+      # commit the run started from, which must still be on main. The app's versionName there
+      # must be the tag's: the build job checks the APK again, but this stops a wrong tag before
+      # the long build.
+      - name: Check out the release
+        id: release
+        if: steps.tag.outputs.tag != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          CANDIDATE: ${{ steps.tag.outputs.candidate }}
+        run: |
+          if [[ -n $CANDIDATE ]]; then
+            git fetch -q origin "+refs/heads/main:refs/remotes/origin/main"
+            commit=$GITHUB_SHA
+            git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
+              { echo "::error::$commit is no longer on main"; exit 1; }
+          else
+            git fetch -q origin "+refs/tags/$TAG:refs/tags/$TAG" "+refs/heads/main:refs/remotes/origin/main"
+            commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+            git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
+              { echo "::error::$TAG names $commit, which is not on main"; exit 1; }
+          fi
+          git checkout -q --detach "$commit"
+          version_name=$(sed -n 's/^ *versionName = "\(.*\)".*/\1/p' app/app/build.gradle.kts)
+          [[ v$version_name == "$TAG" ]] ||
+            { echo "::error::the app's versionName at $commit is ${version_name:-not set}, not the tag's ${TAG#v}"; exit 1; }
+          echo "commit=$commit" | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    needs: tag
+    if: needs.tag.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    # GitHub stops a hosted job after 360 minutes. The build step has its own, shorter limit: a
+    # step that runs out of time fails (it is not cancelled), so the parts it finished are still
+    # saved and the next run continues from them.
+    timeout-minutes: 350
+    # The release key's secrets are the environment's, so no other job can read them.
+    environment: release
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      # Not persisted: the release is published with gh, not git.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.commit }}
+          persist-credentials: false
+
+      # The build trees of Wine, glibc and Mesa and the build images need more room than a
+      # hosted runner leaves free. In the background: deleting is slow, and the room is needed
+      # only later. Of the runner's Android SDK only build-tools stays: its aapt2 and apksigner
+      # describe the APK below.
+      - name: Make room on the disk
+        run: |
+          df -h / "$GITHUB_WORKSPACE"
+          nproc
+          free -g
+          sudo nohup find /usr/local/lib/android/sdk -mindepth 1 -maxdepth 1 ! -name build-tools \
+            -exec rm -rf {} + >/dev/null 2>&1 &
+          sudo nohup rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/powershell /usr/share/swift >/dev/null 2>&1 &
+
+      # The package resolver and the ARM64 Wine that makes the prefix run under qemu-user, from
+      # Ubuntu's signed archive. Containers find the handler only when the kernel holds it open
+      # (flag F), which the package's binfmt setup gives.
+      - name: Install a static qemu-aarch64 binfmt_misc handler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends qemu-user-static
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+          grep -q '^flags: .*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
+
+      # The newest caches are safe to restore: build.sh checks every pinned download by its
+      # SHA-256 and reuses a part only while its recorded inputs are the current ones, and the
+      # build images are named by tags that hash their Containerfiles and pins. The keys never
+      # match exactly (each save is named by what it holds, below), so the prefix finds the
+      # newest.
+      - name: Restore the downloads
+        id: dl
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/dl
+          key: lite-dl-${{ needs.tag.outputs.commit }}
+          restore-keys: lite-dl-
+
+      - name: Restore the parts
+        id: parts
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/parts
+          key: lite-parts-${{ needs.tag.outputs.commit }}
+          restore-keys: lite-parts-
+
+      - name: Restore the build images
+        id: images
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/images
+          key: lite-images-${{ needs.tag.outputs.commit }}
+          restore-keys: lite-images-
+
+      - name: Write the release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.LITE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LITE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LITE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LITE_KEY_PASSWORD }}
+        run: |
+          [[ -n $KEYSTORE_BASE64 && -n $KEYSTORE_PASSWORD && -n $KEY_ALIAS && -n $KEY_PASSWORD ]] ||
+            { echo "the release key's secrets are not set" >&2; exit 1; }
+          signing=$RUNNER_TEMP/signing
+          install -d -m 0700 "$signing"
+          umask 077
+          base64 --decode <<<"$KEYSTORE_BASE64" > "$signing/release.jks"
+          echo "PD2_LITE_KEYSTORE=$signing/release.jks" >> "$GITHUB_ENV"
+
+      # Only this step has the passwords. The images build.sh loads or builds go through their
+      # archives (PD2_IMAGE_ARCHIVE).
+      - name: Build the signed release APK
+        timeout-minutes: 300
+        env:
+          PD2_LITE_KEYSTORE_PASSWORD: ${{ secrets.LITE_KEYSTORE_PASSWORD }}
+          PD2_LITE_KEY_ALIAS: ${{ secrets.LITE_KEY_ALIAS }}
+          PD2_LITE_KEY_PASSWORD: ${{ secrets.LITE_KEY_PASSWORD }}
+        run: |
+          export PD2_LITE_CACHE=$HOME/.cache/pd2-lite
+          export PD2_IMAGE_ARCHIVE=$PD2_LITE_CACHE/images
+          df -h /
+          ./build.sh release
+          df -h /
+
+      - name: Remove the release key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/signing"
+
+      # Each cache is named by what it holds, so it is saved again only when something in it
+      # changed. Kept also when the build failed or ran out of time: a part is recorded only
+      # once it is built.
+      - name: Name the downloads and the parts
+        id: keys
+        if: ${{ !cancelled() }}
+        run: |
+          cache=$HOME/.cache/pd2-lite
+          if [[ -d $cache/dl ]] && [[ -n $(find "$cache/dl" -type f -print -quit) ]]; then
+            key=$(find "$cache/dl" -type f -printf '%P %s\n' | sort | sha256sum | cut -c1-16)
+            echo "dl=lite-dl-$key" | tee -a "$GITHUB_OUTPUT"
+          fi
+          if [[ -d $cache/parts ]] && [[ -n $(find "$cache/parts" -type f -print -quit) ]]; then
+            # Names, sizes and whole seconds of the times of change: a part built again changes them.
+            key=$(find "$cache/parts" -type f -printf '%P %s %T@\n' | sed 's/\.[0-9]*$//' | sort |
+              sha256sum | cut -c1-16)
+            echo "parts=lite-parts-$key" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save the downloads
+        if: ${{ !cancelled() && steps.keys.outputs.dl != '' && steps.keys.outputs.dl != steps.dl.outputs.cache-matched-key }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/dl
+          key: ${{ steps.keys.outputs.dl }}
+
+      - name: Save the parts
+        if: ${{ !cancelled() && steps.keys.outputs.parts != '' && steps.keys.outputs.parts != steps.parts.outputs.cache-matched-key }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/parts
+          key: ${{ steps.keys.outputs.parts }}
+
+      # An archive is <image name, with / and : as _>.tar.zst, and its tag (after the last _)
+      # hashes the image's inputs. Only the newest archive of each image is kept: an older one
+      # was made for inputs that changed since. A .part file is an archive that was not finished.
+      - name: Name the build images
+        id: images-key
+        if: ${{ !cancelled() }}
+        run: |
+          archive=$HOME/.cache/pd2-lite/images
+          mkdir -p "$archive"
+          rm -f "$archive"/*.part
+          find "$archive" -maxdepth 1 -name '*.tar.zst' -printf '%T@ %f\n' | sort -rn |
+            awk '{ image = $2; sub(/_[^_]*\.tar\.zst$/, "", image); if (seen[image]++) print $2 }' |
+            while read -r old; do rm -f "$archive/$old"; done
+          ls -l "$archive"
+          names=$(find "$archive" -maxdepth 1 -name '*.tar.zst' -printf '%f\n' | sort)
+          [[ -n $names ]] || exit 0
+          echo "key=lite-images-$(sha256sum <<<"$names" | cut -c1-16)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Save the build images
+        if: ${{ !cancelled() && steps.images-key.outputs.key != '' && steps.images-key.outputs.key != steps.images.outputs.cache-matched-key }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pd2-lite/images
+          key: ${{ steps.images-key.outputs.key }}
+
+      - name: Name the APK and describe it
+        run: |
+          built=out/pd2-launcher-lite-release.apk
+          [[ -f $built ]] || { echo "::error::build.sh release made no $built"; exit 1; }
+          sdk=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          build_tools=$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1 || true)
+          [[ -n $build_tools && -x $build_tools/aapt2 && -x $build_tools/apksigner ]] ||
+            { echo "::error::no aapt2 and apksigner in the runner's Android SDK ($sdk)"; exit 1; }
+          badging=$("$build_tools/aapt2" dump badging "$built" | sed -n '/^package:/p')
+          version_name=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<<"$badging")
+          version_code=$(sed -n "s/.* versionCode='\([^']*\)'.*/\1/p" <<<"$badging")
+          package=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging")
+          certificate=$("$build_tools/apksigner" verify --print-certs "$built" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          [[ -n $version_name && -n $version_code && -n $certificate ]]
+          [[ $package == com.pd2launcher.lite ]] ||
+            { echo "::error::the APK's package is $package, not com.pd2launcher.lite"; exit 1; }
+          [[ v$version_name == "$TAG" ]] ||
+            { echo "::error::the APK's versionName is $version_name, not the tag's ${TAG#v}"; exit 1; }
+          apk=pd2-launcher-lite-$version_name.apk
+          mkdir -p release
+          cp "$built" "release/$apk"
+          (cd release && sha256sum "$apk" > "$apk.sha256")
+          {
+            echo "PD2 Launcher Lite $TAG."
+            echo
+            echo "- \`$apk\`: package \`$package\`, versionName $version_name, versionCode $version_code; SHA-256 in \`$apk.sha256\`."
+            echo "- Signed with the certificate whose SHA-256 is \`$certificate\`."
+          } > release/notes.md
+          cat release/notes.md
+
+      # The tag may have moved since the tag job looked: the release is published only while it
+      # still names the commit built.
+      - name: Check the tag still names the release
+        if: needs.tag.outputs.candidate != 'true'
+        env:
+          COMMIT: ${{ needs.tag.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+        run: |
+          refs=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          # An annotated tag names its commit in the peeled entry, a lightweight one directly.
+          now=$(awk -v ref="refs/tags/$TAG^{}" '$2 == ref { print $1 }' <<<"$refs")
+          [[ -n $now ]] || now=$(awk -v ref="refs/tags/$TAG" '$2 == ref { print $1 }' <<<"$refs")
+          [[ $now == "$COMMIT" ]] ||
+            { echo "::error::$TAG names ${now:-nothing} now, not the commit built ($COMMIT)"; exit 1; }
+
+      # A candidate is published as a draft only while its tag does not exist: publishing the
+      # draft makes it.
+      - name: Check the tag still does not exist
+        if: needs.tag.outputs.candidate == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+        run: |
+          refs=$(git ls-remote origin "refs/tags/$TAG")
+          [[ -z $refs ]] || { echo "::error::the tag $TAG exists now; a candidate is published before its tag"; exit 1; }
+
+      - name: Publish the release
+        env:
+          COMMIT: ${{ needs.tag.outputs.commit }}
+          CANDIDATE: ${{ needs.tag.outputs.candidate }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          [[ $TAG == *-* ]] && prerelease=(--prerelease)
+          files=(release/*.apk release/*.apk.sha256)
+          if [[ -n $CANDIDATE ]]; then
+            # A candidate's files go on a draft release only, which targets the commit built.
+            if draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>&1); then
+              [[ $draft == true ]] ||
+                { echo "::error::the release $TAG is published; a candidate replaces the files of a draft only"; exit 1; }
+              gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --target "$COMMIT" --notes-file release/notes.md
+            elif [[ $draft != "release not found" ]]; then
+              echo "::error::cannot read the release $TAG: $draft"
+              exit 1
+            else
+              gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --draft --target "$COMMIT" \
+                --title "$TAG" --notes-file release/notes.md "${prerelease[@]}"
+            fi
+          elif gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # A published APK is never replaced by a build: a person deletes it first.
+            assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+            [[ $assets == 0 ]] ||
+              { echo "::error::the release $TAG already has $assets files; delete them to publish it again"; exit 1; }
+            gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release/notes.md
+          else
+            gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "$TAG" --notes-file release/notes.md "${prerelease[@]}"
+          fi

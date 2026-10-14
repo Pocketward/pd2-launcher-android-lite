@@ -1,0 +1,26 @@
+# The pinned toolchain of the XInput bridge (build/bridge.sh): the base image by digest and every
+# package by exact version from one snapshot.debian.org timestamp (Debian 13), so a rebuild gives
+# the same DLL, byte for byte (../config.sh pins its SHA-256).
+ARG DEBIAN_IMAGE
+FROM ${DEBIAN_IMAGE}
+
+ARG DEBIAN_SNAPSHOT
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+    && printf '%s\n' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" \
+        'Suites: trixie' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        'Check-Valid-Until: no' \
+        > /etc/apt/sources.list.d/snapshot.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        clang-19=1:19.1.7-3+b1 \
+        lld-19=1:19.1.7-3+b1 \
+        llvm-19=1:19.1.7-3+b1 \
+        xz-utils=5.8.1-1+deb13u1 \
+        xxd=2:9.1.1230-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/usr/lib/llvm-19/bin:$PATH
