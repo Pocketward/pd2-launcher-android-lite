@@ -51,11 +51,24 @@ if [[ "$target" == debug && -n "${PD2_LITE_DEBUG_KEYSTORE:-}" ]]; then
     cp "$PD2_LITE_DEBUG_KEYSTORE" "$LITE_CACHE/android/debug.keystore"
 fi
 
-# Only Gradle's and Android's caches: the parts and downloads are not Gradle's to change.
+# Only Gradle's and Android's caches: the parts and downloads are not Gradle's to change. The
+# verification metadata is written from empty Gradle caches, as a build on a new machine starts:
+# Gradle records only what it downloads, and a filled cache would leave out the parent POMs and
+# BOMs that it reads from there.
 run_args=(--rm --security-opt label=disable -v "$app:/work")
+fresh=()
+trap 'rm -rf "${fresh[@]}"' EXIT
 for d in gradle m2 android home; do
-    run_args+=(-v "$LITE_CACHE/$d:/cache/$d")
+    src="$LITE_CACHE/$d"
+    if [[ "$target" == verification-metadata && ( "$d" == gradle || "$d" == m2 ) ]]; then
+        src="$(mktemp -d "$LITE_CACHE/$d-fresh.XXXXXX")"
+        fresh+=("$src")
+    fi
+    run_args+=(-v "$src:/cache/$d")
 done
+if [[ "$target" == verification-metadata ]]; then
+    rm -f "$app/gradle/verification-metadata.xml"
+fi
 if [[ "$target" == release ]]; then
     for v in PD2_LITE_KEYSTORE PD2_LITE_KEYSTORE_PASSWORD PD2_LITE_KEY_ALIAS PD2_LITE_KEY_PASSWORD; do
         [[ -n "${!v:-}" ]] || { echo "refusing: a release APK needs $v (docs/BUILDING.md)" >&2; exit 1; }
