@@ -113,6 +113,9 @@ class Session(
     @Volatile private var audioRunning = false
     private var audioThread: Thread? = null
 
+    /** The game's sound is silent ([GameAudioMute]): its track plays on at volume 0, so the pipe keeps draining. */
+    @Volatile var muted = false
+
     /**
      * PulseAudio for Wine's winepulse (the native libpulse): a Unix socket, and a pipe
      * sink at 22.05 kHz (the main app's rate: Wine's mixer costs a quarter of a big core less than
@@ -147,11 +150,17 @@ class Session(
                 .build()
             track.play()
             val buf = ByteArray(4096)
+            var silent = false
             try {
                 FileInputStream(sinkFifo).use { input ->
                     while (audioRunning) {
                         val n = input.read(buf)
                         if (n < 0) break
+                        if (muted != silent) {
+                            silent = muted
+                            track.setVolume(if (silent) 0f else 1f)
+                            Log.i(Native.TAG, "sound: ${if (silent) "muted (the game view is not on screen)" else "on"}")
+                        }
                         track.write(buf, 0, n and 3.inv())
                     }
                 }
@@ -203,6 +212,9 @@ class Session(
     fun start() {
         startedAt = System.nanoTime()
         killAll()
+        PrefixTemp.clear(rt.prefix).takeIf { it.files > 0 }?.let {
+            Log.i(Native.TAG, "prefix Temp: removed ${it.files} files, ${it.bytes / 1024} KiB")
+        }
         rt.logs.mkdirs()
         File(rt.tmp, "xkb").mkdirs()
         File(rt.tmp, "run").mkdirs()
@@ -445,7 +457,10 @@ class Session(
             }
         }
 
-        /** Ends every other process of the app's user (Wine's server and services included). */
+        /**
+         * Ends every other process of the app's user (Wine's server and services included), but
+         * Share logs' capture of the app's own log ([LiteState.logCapture]).
+         */
         fun killAll() {
             val me = Os.getpid()
             val uid = Os.getuid()
@@ -453,7 +468,7 @@ class Session(
                 val pid = p.name.toIntOrNull() ?: return@forEach
                 if (pid == me) return@forEach
                 try {
-                    if (Os.stat(p.path).st_uid == uid) Os.kill(pid, OsConstants.SIGKILL)
+                    if (Os.stat(p.path).st_uid == uid && !LiteState.logCapture(pid, me)) Os.kill(pid, OsConstants.SIGKILL)
                 } catch (_: Exception) {
                 }
             }

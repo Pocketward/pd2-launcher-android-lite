@@ -35,4 +35,15 @@
     <string name="settings_keep_screen_on_body">The screen does not dim or turn off while the game shows.</string>
     <string name="settings_show_fps">Show fps</string>
     <string name="settings_show_fps_body">A small counter at the top of the game: the frames the game draws each second.</string>
+
+    <!-- The Android settings the app depends on, each with the system screen that changes it. -->
+    <string name="settings_section_android">Android</string>
+    <string name="settings_battery">Battery optimisation</string>
+    <string name="settings_battery_restricted">On. Android may pause the game and the launcher\'s updates while the screen is off. Choose \"Not optimised\" for PD2 Launcher Lite in the list that opens.</string>
+    <string name="settings_battery_unrestricted">Off for PD2 Launcher Lite. The game goes on in the background.</string>
+    <string name="settings_battery_open">Battery settings</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_off">Off. Android may stop the game while PD2 Launcher Lite is in the background.</string>
+    <string name="settings_notifications_on">On. The session notification keeps the official launcher and the game running.</string>
+    <string name="settings_notifications_open">Notification settings</string>
 </resources>

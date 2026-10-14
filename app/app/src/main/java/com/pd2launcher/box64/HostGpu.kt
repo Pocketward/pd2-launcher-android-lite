@@ -25,7 +25,7 @@ object HostGpu {
     /** kbase's Mali on a device without KGSL; null on an Adreno or when `/dev/mali0` does not answer. */
     val mali: MaliGpu? by lazy { if (adreno) null else MaliProbe.probe() }
 
-    /** Whether the game runs on PanVK: no Adreno, and a Mali the bundled PanVK runs ([MaliGpu.supported]). */
+    /** Whether the game runs on PanVK: no Adreno, and a Mali of a generation the bundled PanVK runs ([MaliGpu.supported]). */
     val panvk: Boolean get() = !adreno && mali?.supported == true
 
     /**

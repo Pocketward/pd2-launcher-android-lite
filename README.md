@@ -16,17 +16,17 @@ Lite is the small version of [PD2 Launcher for Android](https://github.com/Pocke
 | Runtime | FEX-Emu runs an x86-64 Linux system with Wine | Wine built for ARM64 runs natively; Box64's WowBox64 translates only the game's and the launcher's 32-bit x86 code. The .NET runtime that the launcher needs is included |
 | App size | About 560 MB | About 100 MB |
 | Storage | About 10 GB during the installation | About 0.5 GB for the app, plus your game folder (about 3 GB) |
-| Running in the background | Keeps running, with a notification | No background service: Android can stop the game while you use another app |
-| A Mali GPU that the bundled graphics driver does not know | A warning; the app tries anyway | Refused |
 
 The two apps can be installed side by side. Lite's icon has a gold **LITE** ribbon.
 
 ## What your device needs
 
 - An ARM64 device with Android 13 or later, using 4 KB memory pages (almost every phone and handheld does).
-- A Qualcomm Adreno GPU (Snapdragon devices), or an Arm Mali-G310, G610, G615, G715, G720 or G725 GPU. Other GPUs are not supported.
+- A Qualcomm Adreno GPU (Snapdragon devices), or an Arm Mali GPU of the v10 to v13 architectures on Arm's CSF kernel driver, such as the Mali-G310, G610, G615, G715, G720 and G725. Other GPUs are not supported.
 - About 0.5 GB of free storage for the app and its runtime, plus the size of your game folder. While you import, the folder you copied to the device is there too; you can delete it afterwards.
 - An internet connection when the official launcher checks for and downloads Project Diablo 2 updates.
+
+The app checks this when it first starts and says what is missing. A Mali GPU of those architectures that the bundled graphics driver does not know gets a warning instead: the app lets you go on, but the game may not start.
 
 ## What you need
 
@@ -40,7 +40,7 @@ Download the APK from the [releases page](https://github.com/Pocketward/pd2-laun
 
 The app walks you through four steps:
 
-1. **Check:** your device and the game's support files, which the app unpacks once.
+1. **Check:** your device, notifications and battery settings (both optional, but without them Android may stop the game while the app is in the background), and the game's support files, which the app unpacks once.
 2. **Import:** pick your copied Diablo II folder with Android's folder picker. Lite checks that Project Diablo 2 is in it and says why when it is not.
 3. **Complete:** Lite copies the folder into its own storage and checks the copy. The folder you picked is only read.
 4. **Play:** **Start launcher** opens Project Diablo 2's official launcher. Its **Play** starts the game, and the launcher closes once the game shows. When you leave the game, the app comes back to this screen. The launcher also updates Project Diablo 2 and manages loot filters; links in it (news, Donate) open in your browser.
@@ -54,11 +54,13 @@ In the game:
 - **In-game menu:** the floating button, Android's Back gesture, or the controller chord opens a menu on the right edge, without pausing the game: Keyboard, Touch pad, Show fps, Controls, Edit controls, Settings and Stop game. Over the official launcher it offers Keyboard, Settings and Close launcher.
 - **Screen:** the game fills your screen in Project Diablo 2's own shape (widescreen in the game, 4:3 in its menus), with black bars only where your screen's shape differs. Lite does not change Project Diablo 2's own resolution.
 
+The official launcher and the game keep running when you switch apps; a notification shows while they do. Tap it to go back; its **Stop** ends them, as **Stop game** does. The game's sound stops while you use another app, unless sound in the background is on in the official launcher's **Options**.
+
 **Settings:**
 
 - **Game:** the game resolution (fewer lines run smoother; Automatic picks one for your GPU), the graphics profile (Default or Performance), and Limit to 60 fps on screens faster than 60 Hz. The renderer, Skip to Battle.net and sound in the background are in the official launcher's **Options**.
 - **Controller:** the on-screen controls, the mouse-mode chord, the pointer speed and every button.
-- **App:** keeping the screen on, the fps counter, your game files and storage.
+- **App:** keeping the screen on, the fps counter, your game files and storage, Android's battery optimisation and notifications for the app, and **Share logs** and **Save logs** (see Problems).
 
 ## Your files
 
@@ -68,7 +70,7 @@ Uninstalling the app removes its copy of the game folder. Copy your characters (
 
 ## Problems
 
-Open an [issue](https://github.com/Pocketward/pd2-launcher-android-lite/issues) with your device's model, Android version and GPU (the Check screen shows them) and what happened.
+Open an [issue](https://github.com/Pocketward/pd2-launcher-android-lite/issues) with your device's model, Android version and GPU (the Check screen shows them) and what happened, and attach the app's logs: **Share logs** in **Settings → App**, or under the error on the Check, Import, Complete and Play screens (and on Complete while it copies or is stopped), makes one file to send; **Save logs** beside it saves that file on the device instead, for example in Downloads. The file holds the device's facts, the app's own log and the logs of the game's last start; nothing from your game folder. It holds no CD keys, but it can show your character names and network addresses.
 
 ## Building from source
 

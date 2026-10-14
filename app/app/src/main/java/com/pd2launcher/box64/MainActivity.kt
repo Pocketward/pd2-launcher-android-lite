@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,6 +44,8 @@ import com.pd2launcher.box64.ui.ImportNotice
 import com.pd2launcher.box64.ui.ImportScreen
 import com.pd2launcher.box64.ui.LauncherTheme
 import com.pd2launcher.box64.ui.LocalFormFactor
+import com.pd2launcher.box64.ui.LocalLogShare
+import com.pd2launcher.box64.ui.LocalSystem
 import com.pd2launcher.box64.ui.NotSupportedScreen
 import com.pd2launcher.box64.ui.Play
 import com.pd2launcher.box64.ui.PlayDestinations
@@ -50,6 +53,7 @@ import com.pd2launcher.box64.ui.PlayScreen
 import com.pd2launcher.box64.ui.RepairScreen
 import com.pd2launcher.box64.ui.SettingsNav
 import com.pd2launcher.box64.ui.SettingsScreen
+import com.pd2launcher.box64.ui.SystemUi
 import com.pd2launcher.box64.ui.importContinuePicks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -62,6 +66,9 @@ import java.io.File
  * Settings, About and the on-screen controls editor over a sample screen. Where it opens is read
  * from the app's copy of the game ([Onboarding.opening]). Laid out for the display's shape
  * (ui/FormFactor.kt), edge to edge. Touch and controller (d-pad focus, A selects, B goes back).
+ * Once the device check passed it makes the session notification's channel, which brings
+ * Android's notification prompt ([AndroidSystem.createChannel]); Check's notifications and battery
+ * rows and Settings → App → Android follow the answers. Share logs and Save logs: [LogShareHost].
  */
 class MainActivity : ComponentActivity() {
     /** Debug builds only: the [DebugPreview] screen asked for with `--es preview <name>`. */
@@ -81,6 +88,13 @@ class MainActivity : ComponentActivity() {
     private val aboutOpen = mutableStateOf(false)
     /** The one-time notice after the first game session ([ImportRecord.noticeDue]). */
     private val noticeDue = mutableStateOf(false)
+    /** Share logs and Save logs, from Settings → App and beside a failure on Check, Import, Complete and Play. */
+    private val logShare = LogShareHost(this)
+    /** Notifications and battery optimisation: Check's rows and Settings → App → Android, read again on each return. */
+    private val system = SystemUi(
+        onBatterySettings = { AndroidSystem.openBatterySettings(this) },
+        onNotificationSettings = { AndroidSystem.openNotificationSettings(this) },
+    )
     /** Which layout the launcher screens use, from the display's shape (ui/FormFactor.kt). */
     private lateinit var formFactor: FormFactor
     private lateinit var rt: Runtime
@@ -103,7 +117,11 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             LauncherTheme {
-                CompositionLocalProvider(LocalFormFactor provides formFactor) { Root() }
+                CompositionLocalProvider(
+                    LocalFormFactor provides formFactor,
+                    LocalLogShare provides logShare.ui,
+                    LocalSystem provides system,
+                ) { Root() }
             }
         }
     }
@@ -113,6 +131,8 @@ class MainActivity : ComponentActivity() {
         // Back from the game (or Files): the copy may have changed; the first run keeps its page.
         if (opening.value != Opening.FLOW) opening.value = Onboarding.opening(rt.game)
         noticeDue.value = ImportRecord.noticeDue(this)
+        // The player may have answered Android's prompt or changed its settings meanwhile.
+        system.state = AndroidSystem.state(this)
     }
 
     @Composable
@@ -123,6 +143,22 @@ class MainActivity : ComponentActivity() {
         val copy by Setup.copy.collectAsState()
         val app by AppSettingsStore.current.collectAsState()
         val display = remember { GameResolution.display(this) }
+        // The session notification's channel once the device passed: on Android 13 it brings
+        // Android's own notification prompt, over Check (or Play), as in the main app.
+        val passed = device?.let { DeviceCheck.problems(it).isEmpty() } == true
+        LaunchedEffect(passed) {
+            if (passed) {
+                AndroidSystem.createChannel(this@MainActivity)
+                system.state = AndroidSystem.state(this@MainActivity)
+            }
+        }
+        val grant: (Grant) -> Unit = { grant ->
+            when (grant) {
+                Grant.NOTIFICATIONS -> AndroidSystem.openNotificationSettings(this)
+                Grant.BATTERY -> AndroidSystem.requestBatteryExemption(this)
+            }
+        }
+        val systemState = system.state
 
         val previewName = preview.value
         BackHandler(enabled = previewName != null) { preview.value = null }
@@ -188,11 +224,11 @@ class MainActivity : ComponentActivity() {
                     )
                 },
             )
-        } else if (previewName != null && DebugPreview.screen(previewName, device, runtime) != null) {
-            when (val screen = DebugPreview.screen(previewName, device, runtime)!!) {
+        } else if (previewName != null && DebugPreview.screen(previewName, device, runtime, systemState) != null) {
+            when (val screen = DebugPreview.screen(previewName, device, runtime, systemState)!!) {
                 Screen.CheckingDevice -> CheckingDeviceScreen()
                 is Screen.NotSupported -> NotSupportedScreen(screen, onClose = leavePreview)
-                is Screen.Check -> CheckScreen(screen, onContinue = {})
+                is Screen.Check -> CheckScreen(screen, onContinue = {}, onGrant = grant)
                 else -> leavePreview()
             }
         } else if (previewName == DebugPreview.IMPORT) {
@@ -210,19 +246,22 @@ class MainActivity : ComponentActivity() {
         } else if (opening.value != Opening.FLOW && device?.let { DeviceCheck.problems(it) }?.isNotEmpty() == true) {
             // An installed app on a device the check now refuses (as the main app's Installed.Refused):
             // the game support files are not unpacked there, so Play and Repair could only wait.
-            NotSupportedScreen(Screen.NotSupported(DeviceCheck.problems(device!!)), onClose = ::finish)
+            NotSupportedScreen(Screen.NotSupported(DeviceCheck.problems(device!!), DeviceCheck.warnings(device!!)), onClose = ::finish)
         } else if (repairOpen.value || opening.value == Opening.REPAIR) {
             // Back to Play; with the copy found incomplete there is none: Back leaves the app.
             RepairPage(runtime, onBack = { if (opening.value == Opening.REPAIR) moveTaskToBack(true) else repairOpen.value = false })
         } else if (opening.value == Opening.PLAY) {
             PlayPage(device, runtime, app, display, notice = noticeDue.value, preview = false, openSettings = openSettings)
-        } else when (val screen = Onboarding.screen(device, runtime, nav.value.page)) {
+        } else when (
+            val screen = Onboarding.screen(device, runtime, nav.value.page, systemState.notificationsOff, systemState.batteryRestricted)
+        ) {
             Screen.CheckingDevice -> CheckingDeviceScreen()
             is Screen.NotSupported -> NotSupportedScreen(screen, onClose = ::finish)
             is Screen.Check -> CheckScreen(
                 screen,
                 onContinue = { nav.value = nav.value.open(FlowPage.IMPORT) },
                 onTryAgain = { Setup.unpack(this, again = true) },
+                onGrant = grant,
             )
             Screen.Import -> ImportScreen(
                 folder,

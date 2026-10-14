@@ -5,6 +5,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android's DNS servers for the userland's resolver (Dns.kt). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The session service keeps the official launcher and the game running while the player
+         uses another app, with its notification (SessionService.kt). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Check's grant buttons: Android's own prompt to stop optimising the app's battery use, and
+         the notification prompt that the session notification's channel brings. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -37,6 +44,11 @@
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
 
+        <!-- Started and stopped by the game view: the session's foreground service and notification. -->
+        <service
+            android:name=".SessionService"
+            android:exported="false" />
+
         <!-- The "PD2 Launcher Lite" ("PD2 Launcher Lite Dev") root in the Files app and file pickers: the app's copy of Diablo II.
              Only the system's document UI (MANAGE_DOCUMENTS) binds it; other apps reach files
              through the URIs it grants. -->
@@ -49,6 +61,18 @@
             <intent-filter>
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
+        </provider>
+
+        <!-- Share logs' zip for the app the player picks in the share sheet: not exported, read
+             only through the one URI the share grants. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.logs"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_logs" />
         </provider>
     </application>
 </manifest>

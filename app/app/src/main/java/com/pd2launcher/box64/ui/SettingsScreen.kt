@@ -56,6 +56,7 @@ import com.pd2launcher.box64.GameResolution
 import com.pd2launcher.box64.GraphicsProfiles
 import com.pd2launcher.box64.HostGpu
 import com.pd2launcher.box64.R
+import com.pd2launcher.box64.Tone
 import com.pd2launcher.box64.input.Chord
 import com.pd2launcher.box64.input.Controls
 import com.pd2launcher.box64.input.ControlsStore
@@ -95,8 +96,9 @@ class SettingsNav {
  * whose Automatic follows the GPU ([lowTier]); and the limit to 60 frames a second on a screen
  * whose [highestFrameRate] is higher; at the next Start launcher. The renderer, Skip to
  * Battle.net and the game's sound in the background are the official launcher's Options), App
- * (the app's own, [app]; at once) and Controller (the physical controller, [ControlsStore]; at
- * once, in the game too). Each tab opens with when its settings apply. Controller leads with
+ * (the app's own, [app]; at once; then the Android settings the app depends on, [LocalSystem],
+ * and Help: Share logs and Save logs, [LocalLogShare]) and Controller (the physical controller,
+ * [ControlsStore]; at once, in the game too). Each tab opens with when its settings apply. Controller leads with
  * Edit on-screen controls, the one way to the on-screen controls ([onEditOnScreen]: their editor
  * holds all their options); a binding opens the picker as a sheet over the column, as the game
  * resolution opens its choices. [fromGame]: opened from the game's menu.
@@ -357,6 +359,29 @@ private fun AppTab(app: AppSettings, onAppChange: (AppSettings) -> Unit, onAbout
     }
     Section(stringResource(R.string.settings_section_game_files)) { GameFilesRows() }
     Section(stringResource(R.string.settings_section_storage)) { StorageRows() }
+    LocalSystem.current?.let { system ->
+        val state = system.state
+        Section(stringResource(R.string.settings_section_android)) {
+            SystemRow(
+                stringResource(R.string.settings_battery), !state.batteryRestricted,
+                stringResource(if (state.batteryRestricted) R.string.settings_battery_restricted else R.string.settings_battery_unrestricted),
+                stringResource(R.string.settings_battery_open), system.onBatterySettings,
+            )
+            RowRule()
+            SystemRow(
+                stringResource(R.string.settings_notifications), !state.notificationsOff,
+                stringResource(if (state.notificationsOff) R.string.settings_notifications_off else R.string.settings_notifications_on),
+                stringResource(R.string.settings_notifications_open), system.onNotificationSettings,
+            )
+        }
+    }
+    if (LocalLogShare.current != null) {
+        Section(stringResource(R.string.settings_section_help)) {
+            ShareLogsRow(LogShareUi.Action.SHARE)
+            RowRule()
+            ShareLogsRow(LogShareUi.Action.SAVE)
+        }
+    }
     Section(stringResource(R.string.settings_section_about)) {
         FocusRow(onAbout) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -365,6 +390,28 @@ private fun AppTab(app: AppSettings, onAppChange: (AppSettings) -> Unit, onAbout
             }
             Text("›", style = Type.Title, color = Palette.Teal)
         }
+    }
+}
+
+/** An Android setting with its way out: the system screen that changes it (below the words on phones). */
+@Composable
+private fun SystemRow(title: String, ok: Boolean, status: String, action: String, onOpen: () -> Unit) {
+    val phone = LocalFormFactor.current == FormFactor.PHONE
+    val button = @Composable { modifier: Modifier ->
+        LauncherButton(action, onOpen, modifier, height = 48.dp, padding = 16.dp, style = Type.Hint.copy(fontWeight = FontWeight.SemiBold))
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        StatusMark(if (ok) Tone.OK else Tone.WARNING)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = Type.Body, color = Palette.Text)
+            Text(status, style = Type.Hint, color = Palette.Muted)
+            if (phone) button(Modifier.padding(top = 8.dp))
+        }
+        if (!phone) button(Modifier)
     }
 }
 

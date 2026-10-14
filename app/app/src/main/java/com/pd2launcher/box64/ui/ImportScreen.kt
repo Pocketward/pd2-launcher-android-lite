@@ -20,8 +20,8 @@ import com.pd2launcher.box64.Tone
  * Step 2, Import: the Diablo II folder with Project Diablo 2, picked with Android's folder picker
  * ([onPickFolder], or Continue before a folder is accepted) and checked before anything is
  * copied. Continue then goes on to Complete, which copies it at once. Under the button, what the
- * page must say ([importNote]): why a folder is refused, what an accepted one holds, or that the
- * folder is being checked.
+ * page must say ([importNote]): why a folder is refused (with Share logs and Save logs), what an
+ * accepted one holds, or that the folder is being checked.
  */
 @Composable
 fun ImportScreen(folder: FolderState, onPickFolder: () -> Unit, onContinue: () -> Unit, onBack: () -> Unit) {
@@ -44,7 +44,10 @@ fun ImportScreen(folder: FolderState, onPickFolder: () -> Unit, onContinue: () -
             Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), enabled = !checking,
         )
         when (importNote(folder)) {
-            Note.PROBLEM -> Banner(text((folder as FolderState.Problem).why), Palette.Red, Modifier.padding(vertical = 8.dp))
+            Note.PROBLEM -> {
+                Banner(text((folder as FolderState.Problem).why), Palette.Red, Modifier.padding(top = 8.dp))
+                ShareLogsLink(Modifier.padding(bottom = 8.dp))
+            }
             Note.FOUND -> {
                 val found = folder as FolderState.Found
                 val size = found.bytes shr 20

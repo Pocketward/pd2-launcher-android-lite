@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.pd2launcher.box64.CheckRow
+import com.pd2launcher.box64.Grant
 import com.pd2launcher.box64.Line
 import com.pd2launcher.box64.MainAction
 import com.pd2launcher.box64.R
@@ -33,16 +34,19 @@ import com.pd2launcher.box64.Screen
 import com.pd2launcher.box64.Tone
 
 /**
- * Step 1, Check, in plain words: this device, the game support files and whether it can run the
- * game. The rows that passed fold into one line ("3 checks passed") that opens in place; what
- * needs the player (a problem) and what still runs stay open. [onTryAgain]: the game support
- * files failed or are not complete, and this unpacks them again.
+ * Step 1, Check, in plain words: this device, notifications, battery, the game support files and
+ * whether it can run the game. The rows that passed fold into one line ("3 checks passed") that
+ * opens in place; what needs the player (an ask, a warning, a problem) and what still runs stay
+ * open. A row Android lets the app fix has its button ([onGrant]); the row follows once the player
+ * is back. [onTryAgain]: the game support files failed or are not complete, and this unpacks them
+ * again; Share logs and Save logs show under that failure.
  */
 @Composable
 fun CheckScreen(
     screen: Screen.Check,
     onContinue: () -> Unit,
     onTryAgain: () -> Unit = {},
+    onGrant: (Grant) -> Unit = {},
 ) {
     val action = screen.action
     val focus = remember { FocusRequester() }
@@ -68,15 +72,17 @@ fun CheckScreen(
             if (showPassed) {
                 passed.forEach { row ->
                     Rule()
-                    CheckLine(row)
+                    CheckLine(row, onGrant)
                 }
             }
         }
         screen.open.forEachIndexed { index, row ->
             if (index > 0 || passed.isNotEmpty()) Rule()
-            CheckLine(row)
+            CheckLine(row, onGrant)
         }
         checkWaits(action)?.let { WaitNote(text(it)) }
+        // A check that failed (the game support files): the logs say why.
+        if (tone == Tone.ERROR) ShareLogsLink(Modifier.padding(top = 8.dp))
     }
 }
 
@@ -86,10 +92,26 @@ fun CheckScreen(
  */
 fun checkWaits(action: MainAction): Line? = action.hint.takeUnless { action.enabled }
 
-/** One check: its mark, label and lines, and its bar while it unpacks. */
+/** One check: its mark, label and lines, its grant button, and its bar while it unpacks. */
 @Composable
-private fun CheckLine(row: CheckRow) {
-    StatusLine(row.tone, stringResource(row.label), row.lines.map { text(it) })
+private fun CheckLine(row: CheckRow, onGrant: (Grant) -> Unit) {
+    val grant = row.grant
+    StatusLine(
+        row.tone, stringResource(row.label), row.lines.map { text(it) },
+        action = grant?.let {
+            {
+                LauncherButton(
+                    stringResource(
+                        when (it) {
+                            Grant.NOTIFICATIONS -> R.string.check_grant_notifications
+                            Grant.BATTERY -> R.string.check_grant_battery
+                        },
+                    ),
+                    { onGrant(it) }, height = 44.dp, padding = 18.dp,
+                )
+            }
+        },
+    )
     row.progress?.let { Bar(it, Modifier.padding(start = 38.dp, end = 4.dp, bottom = 10.dp), height = 3.dp) }
 }
 

@@ -19,7 +19,12 @@ data class CheckRow(
     val lines: List<Line>,
     /** 0..1 while [Tone.WORKING] has a known amount; null otherwise. */
     val progress: Float? = null,
+    /** What the row's button grants in place; null: nothing to grant. */
+    val grant: Grant? = null,
 )
+
+/** What a Check row can ask Android for: its own prompt where there is one, else its settings page. */
+enum class Grant { NOTIFICATIONS, BATTERY }
 
 /** The first-run pages, in the order the player goes through them. */
 enum class FlowPage { CHECK, IMPORT, COMPLETE }
@@ -66,22 +71,32 @@ sealed interface Screen {
     data class NotSupported(val problems: List<Line>, val warnings: List<Line> = emptyList()) : Screen
 
     /**
-     * Step 1, Check: this device, the game support files and whether it can run the game, in
-     * plain words.
+     * Step 1, Check: this device, notifications, battery, the game support files and whether it
+     * can run the game, in plain words.
      */
     data class Check(
         val device: CheckRow,
+        /** Whether the session's notification shows; never blocks. */
+        val notifications: CheckRow,
+        /** Whether Android's battery optimisation may pause the app in the background; never blocks. */
+        val battery: CheckRow,
         val support: CheckRow,
         val game: CheckRow,
         val action: MainAction,
     ) : Screen {
-        val rows: List<CheckRow> get() = listOf(device, support, game)
+        val rows: List<CheckRow> get() = listOf(device, notifications, battery, support, game)
 
         /** The rows that passed, folded into one line ("3 checks passed") the player can open. */
         val passed: List<CheckRow> get() = rows.filter { it.tone == Tone.OK }
 
-        /** The rows that stay open: a warning, a problem and what still runs. */
+        /** The rows that stay open: what needs the player (an ask, a warning, a problem) and what still runs. */
         val open: List<CheckRow> get() = rows.filter { it.tone != Tone.OK }
+
+        /** The asks left: rows the player may grant in place (notifications, battery); none blocks. */
+        val optionalAsks: Int get() = rows.count { it.grant != null && it.tone == Tone.WARNING }
+
+        /** A warning the player cannot grant away: the device itself is untested. */
+        private val untested: Boolean get() = rows.any { it.tone == Tone.WARNING && it.grant == null }
 
         /** How Check stands, for its title and intro: a problem first, then work still running, then a warning. */
         val tone: Tone get() {
@@ -94,11 +109,19 @@ sealed interface Screen {
             }
         }
 
+        /**
+         * The page's title: "Ready" only when nothing but optional asks remain ("Ready — 2 optional
+         * settings"), never beside a warning about the device itself.
+         */
         val title: Line get() = when (tone) {
             Tone.ERROR -> Line(R.string.check_title_problem)
             Tone.PENDING, Tone.WORKING -> Line(R.string.check_title)
             Tone.OK -> Line(R.string.check_title_ready)
-            Tone.WARNING -> Line(R.string.check_title_untested)
+            Tone.WARNING -> when {
+                untested -> Line(R.string.check_title_untested)
+                optionalAsks == 1 -> Line(R.string.check_title_optional_one)
+                else -> Line(R.string.check_title_optional, optionalAsks)
+            }
         }
 
         @get:StringRes
@@ -106,7 +129,7 @@ sealed interface Screen {
             Tone.ERROR -> R.string.check_intro_problem
             Tone.PENDING, Tone.WORKING -> R.string.check_intro
             Tone.OK -> R.string.check_intro_ready
-            Tone.WARNING -> R.string.check_intro_untested
+            Tone.WARNING -> if (untested) R.string.check_intro_untested else R.string.check_intro_optional
         }
     }
 
@@ -142,22 +165,57 @@ object Onboarding {
         else -> Opening.FLOW
     }
 
-    /** The first run's screen on [page], from the device check ([device], null while it runs) and the [runtime]. */
-    fun screen(device: DeviceFacts?, runtime: RuntimeState, page: FlowPage): Screen {
+    /**
+     * The first run's screen on [page], from the device check ([device], null while it runs), the
+     * [runtime], and whether Android shows the app's notifications ([notificationsOff]) and
+     * optimises its battery use ([batteryRestricted]): warnings on Check, never blockers.
+     */
+    fun screen(
+        device: DeviceFacts?,
+        runtime: RuntimeState,
+        page: FlowPage,
+        notificationsOff: Boolean = false,
+        batteryRestricted: Boolean = false,
+    ): Screen {
         device ?: return Screen.CheckingDevice
         val problems = DeviceCheck.problems(device)
-        if (problems.isNotEmpty()) return Screen.NotSupported(problems)
+        if (problems.isNotEmpty()) return Screen.NotSupported(problems, DeviceCheck.warnings(device))
         return when (page) {
-            FlowPage.CHECK -> check(device, runtime)
+            FlowPage.CHECK -> check(device, runtime, notificationsOff, batteryRestricted)
             FlowPage.IMPORT -> Screen.Import
             FlowPage.COMPLETE -> Screen.Complete
         }
     }
 
-    fun check(device: DeviceFacts, runtime: RuntimeState): Screen.Check =
-        Screen.Check(deviceRow(device), supportRow(runtime), gameRow(runtime), action(runtime))
+    fun check(device: DeviceFacts, runtime: RuntimeState, notificationsOff: Boolean = false, batteryRestricted: Boolean = false): Screen.Check =
+        Screen.Check(
+            device = deviceRow(device),
+            notifications = notificationsRow(notificationsOff),
+            battery = batteryRow(batteryRestricted),
+            support = supportRow(runtime),
+            game = gameRow(runtime),
+            action = action(runtime),
+        )
 
-    /** "Adreno 740 graphics · Android 13". */
+    /**
+     * The session's notification: on Android 13 its channel, made once the device check passed,
+     * brings Android's own prompt over Check (at targetSdk 28 nothing else can ask); off is a
+     * warning with Turn on (the app's notification settings), never a blocker.
+     */
+    fun notificationsRow(off: Boolean): CheckRow = if (off) {
+        CheckRow(R.string.row_notifications, Tone.WARNING, listOf(Line(R.string.notifications_off_warning)), grant = Grant.NOTIFICATIONS)
+    } else {
+        CheckRow(R.string.row_notifications, Tone.OK, listOf(Line(R.string.notifications_on)))
+    }
+
+    /** Android's battery optimisation of the app: a warning with Allow (Android's own prompt), never a blocker. */
+    fun batteryRow(restricted: Boolean): CheckRow = if (restricted) {
+        CheckRow(R.string.row_battery, Tone.WARNING, listOf(Line(R.string.battery_restricted_warning)), grant = Grant.BATTERY)
+    } else {
+        CheckRow(R.string.row_battery, Tone.OK, listOf(Line(R.string.battery_unrestricted)))
+    }
+
+    /** "Adreno 740 graphics · Android 13", then a warning for each finding that lets the app go on ([DeviceCheck.warnings]). */
     fun deviceRow(device: DeviceFacts): CheckRow {
         val gpu = device.gpu
         val summary = if (gpu.isNullOrBlank()) {
@@ -165,7 +223,8 @@ object Onboarding {
         } else {
             Line(R.string.device_summary, gpu, device.androidRelease)
         }
-        return CheckRow(R.string.row_device, Tone.OK, listOf(summary))
+        val warnings = DeviceCheck.warnings(device)
+        return CheckRow(R.string.row_device, if (warnings.isEmpty()) Tone.OK else Tone.WARNING, listOf(summary) + warnings)
     }
 
     /** The game support files: unpacked from the APK at the first start and after an app update. */

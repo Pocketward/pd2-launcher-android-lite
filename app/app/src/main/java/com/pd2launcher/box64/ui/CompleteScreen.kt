@@ -4,6 +4,7 @@ package com.pd2launcher.box64.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -113,6 +114,11 @@ fun CompleteScreen(
         if (copy is CopyState.Failed) {
             Spacer(Modifier.height(12.dp))
             Banner(text(copy.why), Palette.Red)
+        }
+        // Under a failure, and while the copy runs or is stopped, so a copy that looks stuck can be
+        // reported; one place, so the links and their note stay when the copy fails.
+        if (copy is CopyState.Failed || copy is CopyState.Copying || copy is CopyState.Stopped) {
+            ShareLogsLink(Modifier.padding(top = 4.dp))
         }
         (copy as? CopyState.Done)?.keptProblem?.let {
             Spacer(Modifier.height(12.dp))

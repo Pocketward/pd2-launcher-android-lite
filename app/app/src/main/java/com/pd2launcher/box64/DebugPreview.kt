@@ -2,6 +2,7 @@
 package com.pd2launcher.box64
 
 import com.pd2launcher.box64.ui.GameLayer
+import com.pd2launcher.box64.ui.SystemState
 
 /**
  * Debug builds only: `am start -n com.pd2launcher.lite.dev/com.pd2launcher.box64.MainActivity --es preview <name>`
@@ -15,6 +16,8 @@ object DebugPreview {
     const val CHECK = "check"
     /** Check with every row passed, folded. */
     const val CHECK_PASSED = "check-passed"
+    /** Check on a Mali of a supported generation that the bundled PanVK does not know: a warning, not a refusal. */
+    const val CHECK_UNKNOWN_MALI = "check-unknown-mali"
     const val NOT_SUPPORTED = "not-supported"
     /** Import over the real folder state (a pick there is checked, Continue goes nowhere). */
     const val IMPORT = "import"
@@ -47,10 +50,23 @@ object DebugPreview {
     /** A device that passed: the GPU's name as this device reports it. */
     fun device(real: DeviceFacts?): DeviceFacts = real ?: DeviceFacts(DeviceCheck.PAGE_SIZE, true, null, "Adreno", "13")
 
-    /** The screen for [name] among the first run's, from the real [device] and [runtime]; null for the others. */
-    fun screen(name: String, device: DeviceFacts?, runtime: RuntimeState): Screen? = when (name) {
-        CHECK -> Onboarding.screen(device, runtime, FlowPage.CHECK)
+    /**
+     * A Mali-G715's kbase GPU id with another product major (5): a v11 Mali that the bundled PanVK
+     * has no model for, as no test device has one.
+     */
+    val unknownMali = MaliGpu(0xb8a51030L, 38)
+
+    /**
+     * The screen for [name] among the first run's, from the real [device], [runtime] and Android
+     * settings ([system]); null for the others.
+     */
+    fun screen(name: String, device: DeviceFacts?, runtime: RuntimeState, system: SystemState): Screen? = when (name) {
+        CHECK -> Onboarding.screen(device, runtime, FlowPage.CHECK, system.notificationsOff, system.batteryRestricted)
         CHECK_PASSED -> Onboarding.check(device(device), RuntimeState.Ready("preview"))
+        CHECK_UNKNOWN_MALI -> Onboarding.check(
+            DeviceFacts(DeviceCheck.PAGE_SIZE, false, unknownMali, unknownMali.name, "14"), RuntimeState.Ready("preview"),
+            system.notificationsOff, system.batteryRestricted,
+        )
         NOT_SUPPORTED -> Screen.NotSupported(
             listOf(Line(R.string.device_gpu_not_supported, "Mali-G78"), Line(R.string.device_page_size, 16384L)),
         )

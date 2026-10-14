@@ -30,8 +30,11 @@ import com.pd2launcher.box64.ui.GameSettings
 import com.pd2launcher.box64.ui.GameView
 import com.pd2launcher.box64.ui.LauncherTheme
 import com.pd2launcher.box64.ui.LocalFormFactor
+import com.pd2launcher.box64.ui.LocalLogShare
+import com.pd2launcher.box64.ui.LocalSystem
 import com.pd2launcher.box64.ui.SettingsNav
 import com.pd2launcher.box64.ui.SettingsScreen
+import com.pd2launcher.box64.ui.SystemUi
 import java.io.File
 import java.io.IOException
 
@@ -44,9 +47,12 @@ import java.io.IOException
  * It opens the official PD2 launcher ([PROGRAM_LAUNCHER]); the launcher's own Play starts the
  * game in the same session, on the same X screen. A [ProgramWatch] follows what runs: the rail
  * shows the launcher's rows until the game runs, and once neither runs any more the session ends
- * and Play shows again (with a problem line when the launcher did not do its work). Extras (adb,
- * debug builds only): "program" game starts the game alone (Glide, or "renderer" ddraw;
- * -skiptobnet), for tests; "env" space-separated NAME=value for Wine.
+ * and Play shows again (with a problem line when the launcher did not do its work). While it is
+ * open, [SessionService] keeps the session running when the player uses another app, with its
+ * notification (a tap comes back here, [EXTRA_RETURN]; its Stop ends the session as the rail's
+ * Stop does); the game's sound is silent meanwhile unless the game keeps it ([GameAudioMute]).
+ * Extras (adb, debug builds only): "program" game starts the game alone (Glide, or "renderer"
+ * ddraw; -skiptobnet), for tests; "env" space-separated NAME=value for Wine.
  */
 class GameActivity : ComponentActivity() {
     private val main = Handler(Looper.getMainLooper())
@@ -78,9 +84,28 @@ class GameActivity : ComponentActivity() {
     private var display = 1 to 1
     private var highestRate = 0f
     private var lowTier = false
+    /** Share logs and Save logs in Settings over the game. */
+    private val logShare = LogShareHost(this)
+    /** Settings → App → Android over the game. */
+    private val system = SystemUi(
+        onBatterySettings = { AndroidSystem.openBatterySettings(this) },
+        onNotificationSettings = { AndroidSystem.openNotificationSettings(this) },
+    )
+    /** The game view is on screen (between onStart and onStop): the game's sound follows it. */
+    @Volatile private var visible = false
+    /** The running game keeps its sound in the background (its -sndbkg); from the watch. */
+    @Volatile private var soundInBackground = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The notification's tap after its session ended (the open game view comes to the front
+        // without a new one): Play, never a new session.
+        if (intent.getBooleanExtra(EXTRA_RETURN, false)) {
+            Log.i(Native.TAG, "the notification's tap came after the session ended: back to Play")
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finish()
+            return
+        }
         // Not while an import replaces the game copy.
         if (LiteState.importing) {
             Toast.makeText(this, R.string.status_import_busy, Toast.LENGTH_SHORT).show()
@@ -137,6 +162,9 @@ class GameActivity : ComponentActivity() {
         // A web link the official launcher opens (its news, Donate): in Android's browser.
         s.onWebLink = { link -> main.post { openWebLink(link) } }
         session = s
+        // The session runs on while the player uses another app; the notification's Stop ends it here.
+        SessionService.stopView = Runnable { stopFromMenu() }
+        SessionService.start(this, launcherMode)
         // Android's DNS servers for the userland's resolver, before any program starts.
         dns = Dns(this, File(rt.userland, "etc/resolv.conf")).also { it.start() }
         // The program the session started ended (Native logs every end); close-launcher.exe's answer.
@@ -146,7 +174,11 @@ class GameActivity : ComponentActivity() {
         }
         setContent {
             LauncherTheme {
-                CompositionLocalProvider(LocalFormFactor provides formFactor) { Game() }
+                CompositionLocalProvider(
+                    LocalFormFactor provides formFactor,
+                    LocalLogShare provides logShare.ui,
+                    LocalSystem provides system,
+                ) { Game() }
             }
         }
         val startedAt = SystemClock.elapsedRealtime()
@@ -182,6 +214,7 @@ class GameActivity : ComponentActivity() {
      */
     private fun watch(watch: ProgramWatch) {
         watching = true
+        var notified = launcherMode
         var keeperStopped = false
         val stall = LauncherStall(LauncherStall.ticksPerSecond())
         var screen: ScreenPixels? = null
@@ -221,7 +254,16 @@ class GameActivity : ComponentActivity() {
                 Session.stopKeeper()
             }
             if (launcherMode && !launcherExit.done) endLauncher(now, names, sample.gameRuns, launcherRuns)
-            val directDraw = sample.gameRuns && ProgramWatch.gameArguments()?.let(DdrawPointer::directDraw) == true
+            val arguments = if (sample.gameRuns) ProgramWatch.gameArguments() else null
+            val directDraw = arguments?.let(DdrawPointer::directDraw) == true
+            soundInBackground = GameAudioMute.soundInBackground(arguments)
+            applySound()
+            // The notification says what runs: the official launcher until the game runs.
+            val launcherShown = launcherMode && !sample.gameRuns
+            if (launcherShown != notified && !sample.ended) {
+                notified = launcherShown
+                SessionService.update(this, launcherShown)
+            }
             main.post {
                 launcher.value = launcherMode && !sample.gameRuns
                 if (directDraw && !ddraw.value) Log.i(Native.TAG, "the game draws with DirectDraw")
@@ -273,6 +315,36 @@ class GameActivity : ComponentActivity() {
         if (closedBefore == null && closed != null) Log.i(Native.TAG, "the official launcher closed ${closed} ms after the question")
     }
 
+    /** Stop in the rail, or in the session's notification: Play says so when the launcher had stopped responding. */
+    private fun stopFromMenu() {
+        end(LiteState.LauncherEnd.STALLED.takeIf { stalled.value })
+    }
+
+    /**
+     * The game's sound: silent while the game view is not on screen, unless the game keeps it
+     * ([GameAudioMute]). From the main thread and the watch: one at a time, so the newest state wins.
+     */
+    @Synchronized private fun applySound() {
+        session?.muted = GameAudioMute.muted(inBackground = !visible, soundInBackground = soundInBackground)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        visible = true
+        applySound()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        visible = false
+        applySound()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        system.state = AndroidSystem.state(this)
+    }
+
     /** The session is over (or did not start): back to Play, which says so when it ended with a [problem]. */
     private fun end(problem: LiteState.LauncherEnd?) {
         if (isFinishing) return
@@ -302,7 +374,7 @@ class GameActivity : ComponentActivity() {
                 stalled.value = false
                 stallWait = true
             },
-            onStop = { end(LiteState.LauncherEnd.STALLED.takeIf { stalled.value }) },
+            onStop = ::stopFromMenu,
             settings = GameSettings(
                 open = { tab ->
                     settingsNav.open(tab)
@@ -394,6 +466,9 @@ class GameActivity : ComponentActivity() {
         watching = false
         main.removeCallbacksAndMessages(null)
         Native.exitListener = null
+        // The notification goes with the session: nothing runs after the game view.
+        SessionService.stopView = null
+        SessionService.stop(this)
         session?.let { s ->
             recordPlayed()
             s.stop()
@@ -411,5 +486,8 @@ class GameActivity : ComponentActivity() {
         const val EXTRA_PROGRAM = "program"
         const val PROGRAM_LAUNCHER = "launcher"
         const val PROGRAM_GAME = "game"
+
+        /** The session notification's tap: back to the open game view (singleTask), never a new session. */
+        const val EXTRA_RETURN = "return"
     }
 }

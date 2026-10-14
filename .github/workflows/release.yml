@@ -343,17 +343,19 @@ jobs:
         run: |
           built=out/pd2-launcher-lite-release.apk
           [[ -f $built ]] || { echo "::error::build.sh release made no $built"; exit 1; }
-          sdk=${ANDROID_HOME:-/usr/local/lib/android/sdk}
-          build_tools=$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1 || true)
-          [[ -n $build_tools && -x $build_tools/aapt2 && -x $build_tools/apksigner ]] ||
-            { echo "::error::no aapt2 and apksigner in the runner's Android SDK ($sdk)"; exit 1; }
-          badging=$("$build_tools/aapt2" dump badging "$built" | sed -n '/^package:/p')
+          # The build image's aapt2 and apksigner described the APK (build/apk.sh).
+          for f in "$built.badging" "$built.certs"; do
+            [[ -s $f ]] || { echo "::error::build.sh release made no $f"; exit 1; }
+          done
+          badging=$(sed -n '/^package:/p' "$built.badging")
+          echo "$badging"
           version_name=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<<"$badging")
           version_code=$(sed -n "s/.* versionCode='\([^']*\)'.*/\1/p" <<<"$badging")
           package=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging")
-          certificate=$("$build_tools/apksigner" verify --print-certs "$built" |
-            sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-          [[ -n $version_name && -n $version_code && -n $certificate ]]
+          certificate=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$built.certs")
+          for value in version_name version_code package certificate; do
+            [[ -n ${!value} ]] || { echo "::error::no $value in the APK's description"; exit 1; }
+          done
           [[ $package == com.pd2launcher.lite ]] ||
             { echo "::error::the APK's package is $package, not com.pd2launcher.lite"; exit 1; }
           [[ v$version_name == "$TAG" ]] ||

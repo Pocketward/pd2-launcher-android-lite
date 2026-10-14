@@ -18,10 +18,14 @@ data class MaliGpu(val gpuId: Long, val uapiMinor: Int) {
     val name: String get() = PANVK_MODELS[productId] ?: "Mali v%d (GPU id 0x%08x)".format(archMajor, gpuId)
 
     /**
-     * Whether the bundled PanVK runs this GPU: a CSF Mali of [ARCHES] on an interface our kbase
-     * backend takes ([MIN_UAPI_MINOR]), of a model PanVK knows ([PANVK_MODELS]; it refuses any other).
+     * Whether the game runs on this GPU with the bundled PanVK: a CSF Mali of [ARCHES] on an
+     * interface our kbase backend takes ([MIN_UAPI_MINOR]). A model of these that PanVK does not
+     * know ([knownToDriver]) is supported with a warning ([DeviceCheck.warnings]), as in the main app.
      */
-    val supported: Boolean get() = archMajor in ARCHES && uapiMinor >= MIN_UAPI_MINOR && productId in PANVK_MODELS
+    val supported: Boolean get() = archMajor in ARCHES && uapiMinor >= MIN_UAPI_MINOR
+
+    /** Whether the bundled PanVK knows this model ([PANVK_MODELS]); it refuses any other, so the game may not start. */
+    val knownToDriver: Boolean get() = productId in PANVK_MODELS
 
     companion object {
         /** The CSF Malis our kbase backend is for: v10 to v13. */

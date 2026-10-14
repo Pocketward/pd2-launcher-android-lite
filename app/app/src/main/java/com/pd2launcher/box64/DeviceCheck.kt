@@ -20,8 +20,9 @@ data class DeviceFacts(
 )
 
 /**
- * Lite's device rules: an Adreno GPU (the bundled Turnip driver) or a Mali the bundled PanVK runs
- * ([MaliGpu.supported]), and 4 KB memory pages.
+ * Lite's device rules: an Adreno GPU (the bundled Turnip driver) or a Mali of a generation the
+ * bundled PanVK runs ([MaliGpu.supported]), and 4 KB memory pages. A Mali of such a generation that
+ * PanVK does not know gets a warning, not a refusal ([warnings]), as in the main app.
  */
 object DeviceCheck {
     const val PAGE_SIZE = 4096L
@@ -52,5 +53,16 @@ object DeviceCheck {
             add(if (facts.gpu.isNullOrBlank()) Line(R.string.device_gpu_unknown) else Line(R.string.device_gpu_not_supported, facts.gpu))
         }
         if (facts.pageSize != PAGE_SIZE) add(Line(R.string.device_page_size, facts.pageSize))
+    }
+
+    /**
+     * What lets the app go on but may stop the game: a Mali of a supported generation that the
+     * bundled PanVK has no model for (it refuses such a GPU, so the game may not start).
+     */
+    fun warnings(facts: DeviceFacts): List<Line> = buildList {
+        val mali = facts.mali
+        if (!facts.adreno && mali != null && mali.supported && !mali.knownToDriver) {
+            add(Line(R.string.device_gpu_unknown_to_driver, mali.name))
+        }
     }
 }

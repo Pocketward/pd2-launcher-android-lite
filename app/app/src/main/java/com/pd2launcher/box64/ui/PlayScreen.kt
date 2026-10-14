@@ -76,7 +76,7 @@ class PlayDestinations(
  * Play: Start launcher alone in the middle of a quiet field, one line of facts beneath, the
  * destinations (Settings, Controls, Repair, About) along the foot. Start launcher opens the
  * official PD2 launcher; its own Play starts the game (no button here starts the game itself).
- * [problem]: why the last start did not open the launcher. [waiting]: why it cannot start yet
+ * [problem]: why the last start did not open the launcher, with Share logs and Save logs under it. [waiting]: why it cannot start yet
  * ("Getting ready…"), shown where "Ready to play" goes; the button is disabled while it shows.
  */
 @Composable
@@ -127,6 +127,7 @@ fun PlayScreen(
                                 Spacer(Modifier.height(4.dp))
                                 TextLink(stringResource(R.string.action_try_again), onTryAgain)
                             }
+                            ShareLogsLink(Modifier.padding(top = 4.dp))
                         } else if (facts.isNotEmpty()) {
                             Text(facts.map { text(it) }.joinToString("  ·  "), style = Type.Hint, color = Palette.Muted, textAlign = TextAlign.Center)
                         }

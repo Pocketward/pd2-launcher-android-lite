@@ -35,7 +35,10 @@ case "$target" in
     release)
         tasks=":app:assembleRelease"
         apk=app/build/outputs/apk/release/app-release.apk
+        # The image's own aapt2 and apksigner also describe the APK for the release notes (its
+        # package line, and its signer's certificate), so nothing depends on another SDK's tools.
         after=" && apksigner verify --verbose --print-certs $apk && zipalign -c 4 $apk"
+        after+=" && aapt2 dump badging $apk > $apk.badging && apksigner verify --print-certs $apk > $apk.certs"
         ;;
     verification-metadata)
         tasks="--write-verification-metadata sha256 help :app:assembleDebug :app:testDebugUnitTest :app:assembleRelease -x :app:preReleaseBuild"
@@ -99,6 +102,8 @@ mkdir -p "$LITE_OUT"
 if [[ "$target" == release ]]; then
     out="$LITE_OUT/pd2-launcher-lite-release.apk"
     cp "$app/app/build/outputs/apk/release/app-release.apk" "$out"
+    cp "$app/app/build/outputs/apk/release/app-release.apk.badging" "$out.badging"
+    cp "$app/app/build/outputs/apk/release/app-release.apk.certs" "$out.certs"
 else
     out="$LITE_OUT/pd2-launcher-lite.apk"
     cp "$app/app/build/outputs/apk/debug/app-debug.apk" "$out"

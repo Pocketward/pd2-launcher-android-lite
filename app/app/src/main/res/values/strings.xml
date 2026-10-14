@@ -23,6 +23,8 @@
     <string name="device_gpu_not_supported">%1$s is not supported. An Adreno or a Mali-G310, G610, G615, G715, G720 or G725 GPU is needed.</string>
     <string name="device_gpu_unknown">This GPU is not supported. An Adreno or a Mali-G310, G610, G615, G715, G720 or G725 GPU is needed.</string>
     <string name="device_page_size">Memory pages are %1$d bytes. 4096 is needed.</string>
+    <!-- A Mali of a supported generation that the bundled PanVK has no model for: a warning on Check, not a refusal. -->
+    <string name="device_gpu_unknown_to_driver">%1$s is not known to the bundled graphics driver. PD2 may not start on it.</string>
     <!-- Check's device row: the GPU and the Android version. -->
     <string name="device_summary">%1$s graphics · Android %2$s</string>
     <string name="device_summary_android">Android %1$s</string>
@@ -36,6 +38,10 @@
     <string name="check_intro_problem">This device can\'t run the game yet. What is missing is listed here; try again once it is fixed.</string>
     <string name="check_title_untested">Untested device</string>
     <string name="check_intro_untested">The game may not run well on this device; the warning below says why. You can still go on and import your Diablo II folder.</string>
+    <!-- Only the notifications and battery asks are left: both optional. -->
+    <string name="check_title_optional_one">Ready — 1 optional setting</string>
+    <string name="check_title_optional">Ready — %1$d optional settings</string>
+    <string name="check_intro_optional">This device runs Project Diablo 2. The settings below are optional: they keep the game and the official launcher going while you use another app.</string>
     <!-- The rows that passed, folded into one line that opens. -->
     <string name="check_passed_one">1 check passed</string>
     <string name="check_passed">%1$d checks passed</string>
@@ -43,6 +49,15 @@
     <string name="check_passed_hide">Hide</string>
     <!-- The rows in plain words: the runtime is "Game support files" (its build shows in About). -->
     <string name="row_device">This device</string>
+    <string name="row_notifications">Notifications</string>
+    <string name="notifications_off_warning">Off. Android may stop the game while PD2 Launcher Lite is in the background.</string>
+    <string name="notifications_on">On</string>
+    <string name="row_battery">Battery</string>
+    <string name="battery_restricted_warning">Optimised. Android may pause the game and the launcher\'s updates while the screen is off.</string>
+    <string name="battery_unrestricted">Not optimised</string>
+    <!-- A row's button: Android's own screen for it. -->
+    <string name="check_grant_notifications">Turn on</string>
+    <string name="check_grant_battery">Allow</string>
     <string name="row_userland">Game support files</string>
     <string name="row_host">Can run the game</string>
     <string name="userland_checking">Checking…</string>
@@ -64,4 +79,11 @@
     <string name="status_warning">warning</string>
     <string name="status_error">problem</string>
     <string name="status_pending">in progress</string>
+
+    <!-- The session's notification (SessionService), while the official launcher or the game runs. -->
+    <string name="notification_channel_name">Session</string>
+    <string name="notification_title">PD2 Launcher Lite is running</string>
+    <string name="notification_text_launcher">The official PD2 launcher is open. Tap to go back to it.</string>
+    <string name="notification_text_game">Project Diablo 2 is running. Tap to go back to it.</string>
+    <string name="notification_stop">Stop</string>
 </resources>

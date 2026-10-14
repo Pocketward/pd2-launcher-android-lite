@@ -56,7 +56,10 @@ object LiteState {
     /** null: the last one ended as it should (or none ran). */
     val launcherEnd = MutableStateFlow<LauncherEnd?>(null)
 
-    /** Whether a process of the app's user other than this one runs; looked at most once a second. */
+    /**
+     * Whether a process of the app's user other than this one runs, apart from the app's own log
+     * capture ([logCapture]); looked at most once a second.
+     */
     private fun childrenAlive(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (now - aliveAt < 1000) return alive
@@ -65,12 +68,30 @@ object LiteState {
         alive = File("/proc").listFiles()?.any { p ->
             val pid = p.name.toIntOrNull() ?: return@any false
             pid != me && try {
-                Os.stat(p.path).st_uid == uid
+                Os.stat(p.path).st_uid == uid && !logCapture(pid, me)
             } catch (_: Exception) {
                 false
             }
         } == true
         aliveAt = now
         return alive
+    }
+
+    /**
+     * Whether process [pid] is Share logs' capture of the app's own Android log
+     * ([LogShare.captureAppLog]: `logcat`, a child of the app process [me]), which is no part of
+     * a session: it neither keeps one active nor is ended with one.
+     */
+    fun logCapture(pid: Int, me: Int): Boolean = try {
+        logCaptureStat(File("/proc/$pid/stat").readText(), me)
+    } catch (_: Exception) {
+        false
+    }
+
+    /** [logCapture] from the process's `/proc/<pid>/stat` line: its name `logcat` and its parent [me]. */
+    fun logCaptureStat(stat: String, me: Int): Boolean {
+        val name = stat.substringAfter('(', "").substringBeforeLast(')', "")
+        val parent = stat.substringAfterLast(')', "").trim().split(' ').getOrNull(1)?.toIntOrNull()
+        return name == "logcat" && parent == me
     }
 }
