@@ -203,7 +203,8 @@ lite_image() { # name
 run_in() { # image script [args...]
     local image="$1" script="$2"; shift 2
     [[ -n "$image" ]] || { echo "no image for $script" >&2; return 1; }
-    mkdir -p "$LITE_CACHE"
+    # work/ is a scratch area that a new cache (or one restored without it) does not have.
+    mkdir -p "$LITE_CACHE" "$LITE_WORK"
     engine_run --platform linux/amd64 -v "$LITE_DIR:/src:ro" -v "$LITE_CACHE:/cache" \
         -e PD2_LITE_IN_CONTAINER=1 -e PD2_LITE_CACHE=/cache -e "PD2_IMAGE=$image" \
         "${RUN_EXTRA[@]}" "$image" bash "/src/$script" "$@"
