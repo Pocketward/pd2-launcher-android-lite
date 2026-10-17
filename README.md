@@ -6,6 +6,8 @@ An Android app that plays [Project Diablo 2](https://www.projectdiablo2.com/) fr
 
 Lite is the small version of [PD2 Launcher for Android](https://github.com/Pocketward/pd2-launcher-android). It has the same screens, controls and in-game menu, but it does not install the game, and it runs Windows programs with a different, smaller runtime.
 
+**Which app to use:** if you want an app that downloads and installs everything for you (hands-off, all in one), use PD2 Launcher for Android. If you do not need that, because Project Diablo 2 is already installed on your PC, use Lite. It needs fewer resources: a much smaller app, much less storage, and a lighter runtime that translates only the game's and the official launcher's code. So it suits less powerful devices better.
+
 ## How Lite differs from PD2 Launcher for Android
 
 | | PD2 Launcher for Android | PD2 Launcher Lite |
