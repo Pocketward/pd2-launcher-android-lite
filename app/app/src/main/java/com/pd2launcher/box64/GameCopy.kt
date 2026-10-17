@@ -123,20 +123,23 @@ class GameCopy(private val resolver: ContentResolver, private val tree: Uri) {
             if (free < needed + SPARE_BYTES) Line(R.string.import_no_space, (needed + SPARE_BYTES) shr 20, free shr 20) else null
 
         /** Android's shared storage provider, whose tree IDs are paths ("primary:Download/Diablo II"). */
-        private const val SHARED_STORAGE = "com.android.externalstorage.documents"
+        const val SHARED_STORAGE = "com.android.externalstorage.documents"
 
         /** A picked folder as the player finds it: its path on shared storage ("Download/Diablo II"); null from another provider. */
         fun folderName(authority: String?, treeDocumentId: String): String? =
             treeDocumentId.substringAfter(':', "").trim('/').takeIf { authority == SHARED_STORAGE && it.isNotEmpty() }
 
         /**
-         * Whether the GPU is an older or entry-level Adreno, where Automatic picks 480 lines and
-         * D2GL's Performance profile: before the 6xx, a 6xx below the 630, a 7xx below the 710.
-         * Read from KGSL's sysfs model ("Adreno610v1"); false when unknown.
+         * Whether the GPU is an Adreno where Automatic picks D2GL's Performance profile: before the
+         * 6xx, a 6xx below the 660 (the 650 included), a 7xx below the 710. Read from KGSL's sysfs
+         * model ("Adreno610v1"); false when unknown.
          */
-        fun smallAdreno(): Boolean {
-            val n = adrenoModel() ?: return false
-            return n < 600 || n in 600..629 || n in 700..709
+        fun smallAdreno(): Boolean = smallAdreno(adrenoModel())
+
+        /** [smallAdreno] for an Adreno model number (610); false for null. */
+        fun smallAdreno(model: Int?): Boolean {
+            val n = model ?: return false
+            return n < 600 || n in 600..659 || n in 700..709
         }
 
         /** The Adreno model number from KGSL's sysfs ("Adreno610v1" → 610), or null. */

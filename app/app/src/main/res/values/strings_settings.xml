@@ -20,7 +20,7 @@
     <string name="settings_graphics_profile_body">D2GL\'s settings for the game\'s look, written at the next start. What you change in the game (Ctrl+O) stays until you pick another profile.</string>
     <string name="settings_graphics_automatic_default">Automatic: Default</string>
     <string name="settings_graphics_automatic_performance">Automatic: Performance</string>
-    <string name="settings_graphics_automatic_body">Performance on older or entry-level Adreno GPUs and on Mali GPUs, Default on newer Adrenos.</string>
+    <string name="settings_graphics_automatic_body">Performance on Mali GPUs and on Adreno GPUs up to the 650, Default on newer Adrenos.</string>
     <string name="settings_graphics_default">Default</string>
     <string name="settings_graphics_default_body">Project Diablo 2\'s own D2GL settings.</string>
     <string name="settings_graphics_performance">Performance</string>

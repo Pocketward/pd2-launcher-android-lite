@@ -111,7 +111,7 @@ enum class GraphicsProfile(val shader: String, val effects: Boolean) {
 
 object GraphicsProfiles {
     /**
-     * Automatic's profile: Performance where [lowTier] (the older and entry-level Adrenos, and a
+     * Automatic's profile: Performance where [lowTier] (an Adreno up to the 650, and a
      * Mali, whose PanVK path is tuned for it: [HostGpu.lowTier]), else Default.
      */
     fun automatic(lowTier: Boolean): GraphicsProfile = if (lowTier) GraphicsProfile.PERFORMANCE else GraphicsProfile.DEFAULT

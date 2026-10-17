@@ -31,14 +31,17 @@ class FrameRate(private val windowNanos: Long = 1_000_000_000L) {
 /**
  * The frame copy's counts since it started: the game's [presents] (null without the present
  * counter; a 32-bit count, so it wraps), the presents a display frame showed ([shownPresents]),
- * and the different pictures the copy found ([changed]). Lite's copy posts each different
- * picture once ([Native.copyCounts]), so its posted frames are both [shownPresents] and [changed].
+ * and the different pictures the copy found ([changed]). Lite's copy, as the main app's, looks
+ * once a display frame and posts only a different picture ([Native.copyCounts]): a display frame
+ * that found a new present counts as shown also when the game presented the picture already on
+ * the screen, so a game that repeats its pictures (D2 standing in town) does not read as frames
+ * the screen missed.
  */
 data class FrameCounts(val presents: Long?, val shownPresents: Long, val changed: Long) {
     companion object {
-        /** From [Native.copyCounts]: [frames posted, the game's presents or -1]. */
+        /** From [Native.copyCounts]: [pictures posted, the game's presents or -1, display frames that showed a new present]. */
         fun of(counts: LongArray): FrameCounts =
-            FrameCounts(counts.getOrNull(1)?.takeIf { it >= 0 }, counts.getOrElse(0) { 0 }, counts.getOrElse(0) { 0 })
+            FrameCounts(counts.getOrNull(1)?.takeIf { it >= 0 }, counts.getOrElse(2) { 0 }, counts.getOrElse(0) { 0 })
     }
 }
 

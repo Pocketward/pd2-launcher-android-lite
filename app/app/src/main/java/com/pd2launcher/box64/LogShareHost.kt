@@ -2,6 +2,8 @@
 package com.pd2launcher.box64
 
 import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -31,7 +33,7 @@ import java.time.Instant
 class LogShareHost(private val activity: ComponentActivity) {
     val ui = LogShareUi(onShare = ::share, onSave = ::save)
     private val main = Handler(Looper.getMainLooper())
-    private val saveTo = activity.registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip"), ::saveChosen)
+    private val saveTo = activity.registerForActivityResult(SaveInDownload(), ::saveChosen)
     /** The zip waits for the activity to be on screen again; main thread only. */
     private var waiting: (() -> Unit)? = null
 
@@ -182,4 +184,13 @@ class LogShareHost(private val activity: ComponentActivity) {
             ),
         )
     }
+}
+
+/** Android's "Save as" screen for the zip, opened in the Download folder ([LogShare.SAVE_FOLDER_DOCUMENT]). */
+private class SaveInDownload : ActivityResultContracts.CreateDocument("application/zip") {
+    override fun createIntent(context: Context, input: String): Intent =
+        super.createIntent(context, input).putExtra(
+            DocumentsContract.EXTRA_INITIAL_URI,
+            DocumentsContract.buildDocumentUri(GameCopy.SHARED_STORAGE, LogShare.SAVE_FOLDER_DOCUMENT),
+        )
 }

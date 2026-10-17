@@ -29,8 +29,8 @@ object HostGpu {
     val panvk: Boolean get() = !adreno && mali?.supported == true
 
     /**
-     * Whether Automatic's graphics profile is Performance ([GraphicsProfiles.automatic]): an older
-     * or entry-level Adreno ([GameCopy.smallAdreno]), or a Mali, whose PanVK path is tuned for it.
+     * Whether Automatic's graphics profile is Performance ([GraphicsProfiles.automatic]): an Adreno
+     * up to the 650 ([GameCopy.smallAdreno]), or a Mali, whose PanVK path is tuned for it.
      */
     val lowTier: Boolean get() = panvk || GameCopy.smallAdreno()
 }

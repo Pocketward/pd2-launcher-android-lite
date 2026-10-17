@@ -26,7 +26,7 @@ object Native {
     /** Starts copying the framebuffer in [fd] into [surface]; 0 on failure. */
     @JvmStatic external fun startCopy(surface: Surface, fd: Int, counterPath: String?): Long
 
-    /** [frames posted, the game's presents or -1]. */
+    /** [pictures posted, the game's presents or -1, display frames that showed a new present]. */
     @JvmStatic external fun copyCounts(handle: Long): LongArray
 
     @JvmStatic external fun stopCopy(handle: Long)

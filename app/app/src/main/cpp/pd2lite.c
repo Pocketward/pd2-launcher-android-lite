@@ -2,11 +2,14 @@
 // - the process spawner, memfd and socket pair of PD2 Launcher for Android (its
 //   app/src/main/cpp/spawner.c), unchanged but for the class it reports to;
 // - a minimal frame copy: Xvfb's framebuffer (an XWD file in a memfd: header, then 32-bit BGRX)
-//   copied into a Surface whenever it changed, scaled by the compositor. It counts the frames it
-//   posted and, when Mesa's present counter (userland Mesa patch 0002, PD2_PRESENT_COUNTER) is
-//   given, the game's presents, for the fps readout.
+//   copied into a Surface on a display frame whose picture changed, scaled by the compositor. It
+//   counts the pictures it posted, the display frames that found a new present and, when Mesa's
+//   present counter (userland Mesa patch 0002, PD2_PRESENT_COUNTER) is given, the game's
+//   presents, for the fps readout.
 #define _GNU_SOURCE
+#include <android/choreographer.h>
 #include <android/log.h>
+#include <android/looper.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <arm_neon.h>
@@ -233,18 +236,44 @@ JNIEXPORT jint JNICALL Java_com_pd2launcher_box64_Native_killGroup(JNIEnv *env, 
 
 // ---- Frame copy -----------------------------------------------------------------------------
 
+// No present for this long: the picture is drawn outside Mesa's presentation (the official
+// launcher's window, DirectDraw's GDI renderer), so every display frame is hashed again.
+#define PRESENTS_QUIET_NS 250000000LL
+// While presents come, a display frame without one is still hashed this often, for what draws
+// over the game outside them (a Wine window, the X cursor).
+#define SLOW_CHECK_NS 100000000LL
+
 struct copy {
     ANativeWindow *window;
     int fd;
     uint8_t *map;
     size_t map_len;
     int width, height, stride, offset;
-    pthread_t thread;
-    atomic_bool stop;
+    // The different pictures posted, and the display frames that found a new present (its picture
+    // new or the same as the one on the screen): copyCounts reads both on the main thread.
     _Alignas(8) atomic_uint_fast64_t posted;
+    _Alignas(8) atomic_uint_fast64_t fresh;
     uint32_t *presents; // Mesa's present counter (first word), or NULL
+    uint32_t seen_presents;
+    uint64_t checks;
+    int64_t last_present_ns, last_hash_ns;
     uint64_t last_hash;
 };
+
+// One copy thread for the process, with its own looper and choreographer, as the main app's copy
+// has per copy: Android keeps a thread's choreographer (its looper and its connection for the
+// display's frames) until the process ends, so a thread per copy would leave one behind at every
+// return from the background. Each copy is handed to it as [current]; [lock] is held while a
+// display frame works on the copy, so a stopped copy is never touched after stopCopy has it.
+static struct {
+    pthread_once_t once;
+    pthread_mutex_t lock;
+    pthread_cond_t ready;
+    int started;
+    int wake[2]; // a pipe: a byte asks the thread to wait for the next display frame
+    struct copy *current;
+    int waiting; // a frame callback is posted
+} worker = {PTHREAD_ONCE_INIT, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, {-1, -1}, NULL, 0};
 
 static int64_t now_ns(void) {
     struct timespec t;
@@ -301,9 +330,10 @@ static uint64_t hash_frame(const struct copy *c) {
     return h;
 }
 
-static void post(struct copy *c) {
+// The X screen into the window; 0 when the window gave no buffer.
+static int post(struct copy *c) {
     ANativeWindow_Buffer buffer;
-    if (ANativeWindow_lock(c->window, &buffer, NULL) != 0) return;
+    if (ANativeWindow_lock(c->window, &buffer, NULL) != 0) return 0;
     const uint32_t *src = (const uint32_t *)(c->map + c->offset);
     uint32_t *dst = buffer.bits;
     int w = c->width < buffer.width ? c->width : buffer.width;
@@ -326,36 +356,118 @@ static void post(struct copy *c) {
     }
     ANativeWindow_unlockAndPost(c->window);
     atomic_fetch_add(&c->posted, 1);
+    return 1;
+}
+
+static uint32_t presents_now(const struct copy *c) {
+    return c->presents != NULL ? __atomic_load_n(c->presents, __ATOMIC_ACQUIRE) : 0;
+}
+
+// One display frame of copy [c]: the X screen is hashed when a present came since the last display
+// frame (or none came for a while: a picture drawn outside Mesa's presentation), and posted when it
+// changed. A display frame that found a present counts as shown even when its picture is the one
+// already on the screen: a game that presents the same picture again (standing in town, D2 draws
+// a new picture 25 times a second) loses none of its frames, and the copy and the compositor are
+// spared the repeat.
+static void frame(struct copy *c) {
+    if (c->map == NULL) {
+        // Xvfb has not written its framebuffer yet.
+        if (map_framebuffer(c) != 0) return;
+        ANativeWindow_setBuffersGeometry(c->window, c->width, c->height, WINDOW_FORMAT_RGBX_8888);
+        c->seen_presents = presents_now(c);
+    }
+    int64_t now = now_ns();
+    uint32_t presents = presents_now(c);
+    uint32_t since = presents - c->seen_presents;
+    if (since > 0) c->last_present_ns = now;
+    if (c->presents == NULL || c->checks == 0 || since > 0 || now - c->last_present_ns > PRESENTS_QUIET_NS ||
+        now - c->last_hash_ns >= SLOW_CHECK_NS) {
+        uint64_t h = hash_frame(c);
+        c->last_hash_ns = now;
+        // A picture the window took no buffer for is tried again at the next hash.
+        if ((c->checks == 0 || h != c->last_hash) && post(c)) c->last_hash = h;
+    }
+    if (c->checks > 0 && since > 0) atomic_fetch_add(&c->fresh, 1);
+    c->seen_presents = presents;
+    c->checks++;
+}
+
+// Android's choreographer on the copy thread: a display frame for the current copy, then the next
+// one while there is a copy.
+static void on_frame(int64_t frame_time_nanos, void *data) {
+    (void)frame_time_nanos;
+    (void)data;
+    pthread_mutex_lock(&worker.lock);
+    worker.waiting = 0;
+    if (worker.current != NULL) {
+        frame(worker.current);
+        worker.waiting = 1;
+        AChoreographer_postFrameCallback64(AChoreographer_getInstance(), on_frame, NULL);
+    }
+    pthread_mutex_unlock(&worker.lock);
+}
+
+// A copy was handed over: the thread waits for the next display frame, unless it already does.
+static int on_wake(int fd, int events, void *data) {
+    (void)events;
+    (void)data;
+    char bytes[16];
+    while (read(fd, bytes, sizeof bytes) > 0) {
+    }
+    pthread_mutex_lock(&worker.lock);
+    if (worker.current != NULL && !worker.waiting) {
+        worker.waiting = 1;
+        AChoreographer_postFrameCallback64(AChoreographer_getInstance(), on_frame, NULL);
+    }
+    pthread_mutex_unlock(&worker.lock);
+    return 1;
 }
 
 static void *copy_thread(void *arg) {
-    struct copy *c = arg;
-    while (!atomic_load(&c->stop) && map_framebuffer(c) != 0) usleep(20000);
-    if (atomic_load(&c->stop)) return NULL;
-    ANativeWindow_setBuffersGeometry(c->window, c->width, c->height, WINDOW_FORMAT_RGBX_8888);
-    int64_t next = now_ns();
-    while (!atomic_load(&c->stop)) {
-        uint64_t h = hash_frame(c);
-        if (h != c->last_hash) {
-            c->last_hash = h;
-            post(c);
-        }
-        // About 120 checks a second: a 60 Hz game's frames are seen within half a frame.
-        next += 8333333;
-        int64_t wait = next - now_ns();
-        if (wait > 0) {
-            struct timespec t = {0, (long)wait};
-            nanosleep(&t, NULL);
-        } else {
-            next = now_ns();
-        }
-    }
+    (void)arg;
+    ALooper *looper = ALooper_prepare(0);
+    int added = ALooper_addFd(looper, worker.wake[0], ALOOPER_POLL_CALLBACK, ALOOPER_EVENT_INPUT, on_wake, NULL) == 1;
+    pthread_mutex_lock(&worker.lock);
+    worker.started = added ? 1 : -1;
+    pthread_cond_broadcast(&worker.ready);
+    pthread_mutex_unlock(&worker.lock);
+    if (!added) return NULL;
+    for (;;) ALooper_pollOnce(-1, NULL, NULL, NULL);
     return NULL;
+}
+
+static void start_worker(void) {
+    if (pipe2(worker.wake, O_CLOEXEC | O_NONBLOCK) != 0) {
+        LOG("copy thread: no pipe: %s", strerror(errno));
+        worker.started = -1;
+        return;
+    }
+    pthread_t thread;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    int failed = pthread_create(&thread, &attr, copy_thread, NULL);
+    pthread_attr_destroy(&attr);
+    pthread_mutex_lock(&worker.lock);
+    if (failed) worker.started = -1;
+    while (worker.started == 0) pthread_cond_wait(&worker.ready, &worker.lock);
+    pthread_mutex_unlock(&worker.lock);
+    if (worker.started < 0) LOG("copy thread did not start");
+}
+
+static void free_copy(struct copy *c) {
+    if (c->map) munmap(c->map, c->map_len);
+    if (c->presents) munmap(c->presents, 4096);
+    if (c->window) ANativeWindow_release(c->window);
+    if (c->fd >= 0) close(c->fd);
+    free(c);
 }
 
 JNIEXPORT jlong JNICALL Java_com_pd2launcher_box64_Native_startCopy(JNIEnv *env, jclass clazz, jobject surface,
                                                                    jint fd, jstring counter_path) {
     (void)clazz;
+    pthread_once(&worker.once, start_worker);
+    if (worker.started != 1) return 0;
     struct copy *c = calloc(1, sizeof *c);
     if (c == NULL) return 0;
     c->window = ANativeWindow_fromSurface(env, surface);
@@ -370,26 +482,30 @@ JNIEXPORT jlong JNICALL Java_com_pd2launcher_box64_Native_startCopy(JNIEnv *env,
             close(cfd);
         }
     }
-    if (c->window == NULL || c->fd < 0 || pthread_create(&c->thread, NULL, copy_thread, c) != 0) {
-        if (c->window) ANativeWindow_release(c->window);
-        if (c->fd >= 0) close(c->fd);
-        free(c);
+    if (c->window == NULL || c->fd < 0) {
+        free_copy(c);
         return 0;
     }
+    pthread_mutex_lock(&worker.lock);
+    worker.current = c;
+    pthread_mutex_unlock(&worker.lock);
+    char byte = 1;
+    if (write(worker.wake[1], &byte, 1) < 0 && errno != EAGAIN) LOG("copy thread: no wake: %s", strerror(errno));
     return (jlong)(intptr_t)c;
 }
 
-// [frames posted, game presents or -1].
+// [pictures posted, the game's presents or -1, display frames that showed a new present].
 JNIEXPORT jlongArray JNICALL Java_com_pd2launcher_box64_Native_copyCounts(JNIEnv *env, jclass clazz, jlong handle) {
     (void)clazz;
     struct copy *c = (struct copy *)(intptr_t)handle;
-    jlong values[2] = {0, -1};
+    jlong values[3] = {0, -1, 0};
     if (c != NULL) {
         values[0] = (jlong)atomic_load(&c->posted);
         if (c->presents) values[1] = (jlong)__atomic_load_n(c->presents, __ATOMIC_RELAXED);
+        values[2] = (jlong)atomic_load(&c->fresh);
     }
-    jlongArray result = (*env)->NewLongArray(env, 2);
-    if (result) (*env)->SetLongArrayRegion(env, result, 0, 2, values);
+    jlongArray result = (*env)->NewLongArray(env, 3);
+    if (result) (*env)->SetLongArrayRegion(env, result, 0, 3, values);
     return result;
 }
 
@@ -398,13 +514,11 @@ JNIEXPORT void JNICALL Java_com_pd2launcher_box64_Native_stopCopy(JNIEnv *env, j
     (void)clazz;
     struct copy *c = (struct copy *)(intptr_t)handle;
     if (c == NULL) return;
-    atomic_store(&c->stop, true);
-    pthread_join(c->thread, NULL);
-    if (c->map) munmap(c->map, c->map_len);
-    if (c->presents) munmap(c->presents, 4096);
-    ANativeWindow_release(c->window);
-    close(c->fd);
-    free(c);
+    // Once the lock is held no display frame works on the copy, and none will.
+    pthread_mutex_lock(&worker.lock);
+    if (worker.current == c) worker.current = NULL;
+    pthread_mutex_unlock(&worker.lock);
+    free_copy(c);
 }
 
 // A full memory barrier for the gamepad file's seqlock (input/Gamepad.kt): the game's

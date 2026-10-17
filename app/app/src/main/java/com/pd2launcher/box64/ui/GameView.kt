@@ -417,18 +417,24 @@ private class GameSurface(
     private var copy = 0L
     private var lastPosted = 0L
     private var lastPresents = -1L
+    private var lastShown = 0L
 
     /** The copy's counts so far; null while not copying. Main thread. */
     fun counts(): FrameCounts? = copy.takeIf { it != 0L }?.let { FrameCounts.of(Native.copyCounts(it)) }
 
-    /** "stats t=… shown=… presents=…": the frames of the last second, in the log. */
+    /**
+     * "stats t=… shown=… posted=… presents=…": the frames of the last second, in the log: the
+     * display frames that showed a new present, the different pictures posted, the game's presents.
+     */
     fun logStats() {
         val c = copy.takeIf { it != 0L }?.let { Native.copyCounts(it) } ?: return
-        val shown = c[0] - lastPosted
+        val posted = c[0] - lastPosted
+        val shown = c[2] - lastShown
         val presents = if (c[1] >= 0 && lastPresents >= 0) c[1] - lastPresents else -1
         lastPosted = c[0]
         lastPresents = c[1]
-        Log.i(Native.TAG, "stats t=${(System.nanoTime() - session.startedAt) / 1_000_000_000} shown=$shown presents=$presents total=${c[0]}")
+        lastShown = c[2]
+        Log.i(Native.TAG, "stats t=${(System.nanoTime() - session.startedAt) / 1_000_000_000} shown=$shown posted=$posted presents=$presents total=${c[0]}")
     }
 
     /** The chord was held: open the overlay menu. */
@@ -507,6 +513,7 @@ private class GameSurface(
                     copy = Native.startCopy(holder.surface, session.memfd, session.counter.path)
                     lastPosted = 0L
                     lastPresents = -1L
+                    lastShown = 0L
                 }
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}

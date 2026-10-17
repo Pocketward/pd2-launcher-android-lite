@@ -39,6 +39,13 @@ object LogShare {
     /** The most recent lines of Android's log that [captureAppLog] keeps. */
     const val APP_LOG_LINES = 20_000
 
+    /**
+     * Where Save logs' "Save as" screen opens: the shared storage's Download folder (a document of
+     * Android's own provider, [GameCopy.SHARED_STORAGE]). Without it the screen opens in the folder
+     * Android's picker showed this app last: often the game's source folder of the import.
+     */
+    const val SAVE_FOLDER_DOCUMENT = "primary:Download"
+
     /** How long [captureAppLog] waits for Android's log tool. */
     private const val APP_LOG_TIMEOUT_MS = 15_000L
 
