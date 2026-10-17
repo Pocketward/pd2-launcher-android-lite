@@ -12,10 +12,10 @@ Lite is the small version of [PD2 Launcher for Android](https://github.com/Pocke
 |---|---|---|
 | Getting the game | Downloads Blizzard's installers and installs Diablo II, Lord of Destruction and Project Diablo 2 (CD keys needed), or imports a folder | **Imports only:** a Diablo II folder that already has Project Diablo 2. No game downloads, no installers, no CD keys |
 | Project Diablo 2 updates | The app's own **Update** | Project Diablo 2's **official launcher** |
-| Starting the game | **Play** starts the game; the official launcher is optional | **Start launcher** opens the official launcher; its Play starts the game, and the launcher then closes |
-| Runtime | FEX-Emu runs an x86-64 Linux system with Wine | Wine built for ARM64 runs natively; Box64's WowBox64 translates only the game's and the launcher's 32-bit x86 code. The .NET runtime that the launcher needs is included |
+| Starting the game | **Play** starts the game. The official launcher is optional but supported: **Official PD2 launcher** opens it, for example to manage loot filters | **Start launcher** opens the official launcher; its Play starts the game, and the launcher then closes |
+| Runtime | FEX-Emu runs an x86-64 Linux system with Wine-GE 8-26 (`wine-ge-8-26-x86_64`), the Wine version that the [PD2 wiki's Linux guide](https://wiki.projectdiablo2.com/wiki/Support_FAQ#How-to_install_Project_Diablo_2_on_Linux_using_Lutris) names | Wine built for ARM64 runs natively; Box64's WowBox64 translates only the game's and the launcher's 32-bit x86 code. The .NET runtime that the launcher needs is included |
 | App size | About 560 MB | About 100 MB |
-| Storage | About 10 GB during the installation | About 0.5 GB for the app, plus your game folder (about 3 GB) |
+| Storage | About 3 GB for the app and its runtime, plus the game (about 3 GB), plus about 2.6 GB of installer downloads during the installation, which the app offers to remove once the game works | About 0.5 GB for the app and its runtime, plus your game folder (about 3 GB) |
 
 The two apps can be installed side by side. Lite's icon has a gold **LITE** ribbon.
 
