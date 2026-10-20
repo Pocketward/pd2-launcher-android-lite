@@ -1,23 +1,18 @@
 # PD2 Launcher Lite
 
+> **Archived: Lite gets no more updates.** PD2 Launcher for Android now uses Lite's runtime (Wine built for ARM64, with Box64's WowBox64) and keeps everything that it did before: it installs the game, it has its own Update, and it supports the official PD2 launcher. The improvements of Lite's architecture are now part of the main app. Use [PD2 Launcher for Android](https://github.com/Pocketward/pd2-launcher-android/releases) 0.3.0 or later. [Moving to PD2 Launcher for Android](#moving-to-pd2-launcher-for-android) tells how.
+
 > **Unofficial.** PD2 Launcher Lite is a community-made tool. It is not affiliated with or endorsed by the Project Diablo 2 team or Blizzard Entertainment.
 
 An Android app that plays [Project Diablo 2](https://www.projectdiablo2.com/) from a copy of your own Diablo II folder. You copy a Diablo II folder that already has Project Diablo 2 installed (for example from your PC) to your phone or handheld; Lite imports it and opens Project Diablo 2's official launcher, which keeps the game up to date and starts it. You play with touch or a controller on your device's GPU. No root, no Linux container app, no PC streaming.
 
-Lite is the small version of [PD2 Launcher for Android](https://github.com/Pocketward/pd2-launcher-android). It has the same screens, controls and in-game menu, but it does not install the game, and it runs Windows programs with a different, smaller runtime.
+Lite is the small version of [PD2 Launcher for Android](https://github.com/Pocketward/pd2-launcher-android). It has the same screens, controls and in-game menu, but it does not install the game.
 
-**Which app to use:** if you want an app that downloads and installs everything for you (hands-off, all in one), use PD2 Launcher for Android. If you do not need that, because Project Diablo 2 is already installed on your PC, use Lite. It needs fewer resources: a much smaller app, much less storage, and a lighter runtime that translates only the game's and the official launcher's code. So it suits less powerful devices better.
+## Moving to PD2 Launcher for Android
 
-## How Lite differs from PD2 Launcher for Android
-
-| | PD2 Launcher for Android | PD2 Launcher Lite |
-|---|---|---|
-| Getting the game | Downloads Blizzard's installers and installs Diablo II, Lord of Destruction and Project Diablo 2 (CD keys needed), or imports a folder | **Imports only:** a Diablo II folder that already has Project Diablo 2. No game downloads, no installers, no CD keys |
-| Project Diablo 2 updates | The app's own **Update** | Project Diablo 2's **official launcher** |
-| Starting the game | **Play** starts the game. The official launcher is optional but supported: **Official PD2 launcher** opens it, for example to manage loot filters | **Start launcher** opens the official launcher; its Play starts the game, and the launcher then closes |
-| Runtime | FEX-Emu runs an x86-64 Linux system with Wine-GE 8-26 (`wine-ge-8-26-x86_64`), the Wine version that the [PD2 wiki's Linux guide](https://wiki.projectdiablo2.com/wiki/Support_FAQ#How-to_install_Project_Diablo_2_on_Linux_using_Lutris) names | Wine built for ARM64 runs natively; Box64's WowBox64 translates only the game's and the launcher's 32-bit x86 code. The .NET runtime that the launcher needs is included |
-| App size | About 560 MB | About 100 MB |
-| Storage | About 3 GB for the app and its runtime, plus the game (about 3 GB), plus about 2.6 GB of installer downloads during the installation, which the app offers to remove once the game works | About 0.5 GB for the app and its runtime, plus your game folder (about 3 GB) |
+1. Install [PD2 Launcher for Android](https://github.com/Pocketward/pd2-launcher-android/releases) 0.3.0 or later. It installs beside Lite.
+2. In PD2 Launcher for Android, choose **Import an existing installation** and pick a Diablo II folder that has Project Diablo 2. This can be your folder from a PC, or a copy of Lite's game folder, which Android's Files app shows under **PD2 Launcher Lite**. You can also pick that folder directly in Import, without a copy. Your characters come with the folder.
+3. Uninstall Lite only after the import works. Uninstalling Lite removes Lite's copy of the game folder.
 
 The two apps can be installed side by side. Lite's icon has a gold **LITE** ribbon.
 
